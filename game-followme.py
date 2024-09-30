@@ -175,7 +175,8 @@ def main():
     else: 
         ntinst.startClient4("10.96.68.2")    
     ntinst.setServerTeam(teamnumber) 
-    vision_nt = ntinst.getTable("Vision")  # Create/Access "Vision" table
+    # Create/Access "Vision" network table
+    vision_nt = ntinst.getTable("Vision")  
 
     
     print("Entering game logic")
