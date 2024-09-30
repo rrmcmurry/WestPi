@@ -3,10 +3,11 @@ import robotpy_apriltag
 import ntcore
 import time
 
+# Test lab is true if I'm bench testing, false if connected to the robot
 testlab = True
 teamnumber = 9668
-camera_width = 320
-camera_height = 240
+camera_width = 960
+camera_height = 640
 
 
 # Boolean function to return whether target was located
@@ -44,10 +45,14 @@ def drive(vision_nt, y):
 def orient_to_target(tag, vision_nt):
     targetlocked = False
     centerPoint = tag.getCenter()
-    x = (centerPoint.x - (camera_width / 2)) / camera_width  # calculate distance from center of frame relative to the frame width, expected range from -1 to +1
-    if abs(x) < 0.1:                                          # target is considered locked on if this distance is small
+    # Calculate distance from center relative to frame, expected value -1 to +1
+    x = (centerPoint.x - (camera_width / 2)) / camera_width  
+    # Target is considered locked if this distance is within 10% of center
+    if abs(x) < 0.1:                                          
         targetlocked = True
-    turn(vision_nt, x)                                       # Set the relative location as the X-Axis value 
+    # Use this relative distance (times a modifier) as our controller's X-Axis value 
+    # Modifier (0.5) can be changed to make turns faster (e.g. 0.8) or slower (e.g. 0.2)
+    turn(vision_nt, (x * 0.5))                                       
     return targetlocked
 
 
@@ -57,10 +62,13 @@ def optimize_distance(tag, vision_nt):
     UpperRightPoint = tag.getCorner(1)
     Pixels = round(UpperRightPoint.x - UpperLeftPoint.x, 2)
     vision_nt.putNumber("Distance", Pixels)
-    if Pixels < 65:
+    # if too far away drive closer
+    if Pixels < (0.20 * camera_width):
         drive(vision_nt, 0.2)
-    elif Pixels > 80:
+    # if too close back up
+    elif Pixels > (0.25 * camera_width):
         drive(vision_nt, -0.2)
+    # if right in range stay put
     else:
         drive(vision_nt, 0)
 
