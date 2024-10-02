@@ -6,7 +6,7 @@ import time
 import numpy 
 
 # Test lab is true if I'm bench testing, false if connected to the robot
-testlab = True
+testlab = False
 teamnumber = 9668
 camera_width = 960
 camera_height = 640
@@ -32,7 +32,7 @@ def get_target(tags, targetid):
 
 # Set of functions to publish robot controls     
 def turn(vision_nt, x):
-    x = round(x, 2)
+    x = round(x, 2)*.5
     vision_nt.putNumber("X_Axis", x)
 
 def stop_turning(vision_nt):
@@ -62,17 +62,19 @@ def orient_to_target(tag, vision_nt):
 def optimize_distance(tag, vision_nt):
     UpperLeftPoint = tag.getCorner(0)
     UpperRightPoint = tag.getCorner(1)
-    Pixels = round(UpperRightPoint.x - UpperLeftPoint.x, 2)
+    Pixels = abs(round(UpperRightPoint.x - UpperLeftPoint.x, 2))
     vision_nt.putNumber("Distance", Pixels)
     # if too far away drive closer
-    if Pixels < (0.20 * camera_width):
-        drive(vision_nt, 0.2)
+    y = Pixels / camera_width - 0.2
+    drive(vision_nt, y)
+    #if Pixels < (0.20 * camera_width):
+    #    drive(vision_nt, -0.15)
     # if too close back up
-    elif Pixels > (0.25 * camera_width):
-        drive(vision_nt, -0.2)
+    #elif Pixels > (0.25 * camera_width):
+    #    drive(vision_nt, 0.15)
     # if right in range stay put
-    else:
-        drive(vision_nt, 0)
+    #else:
+    #    drive(vision_nt, 0)
 
             
             
@@ -106,7 +108,25 @@ def publish_tags_to_networktables(tags, vision_nt):
 
     vision_nt.putNumber("Tags_detected",count)
     
+# Function to publish detected tags to NetworkTables
+def draw_tags_on_frame(frame, tags):
+    for tag in tags:
+        # For each detected tag, get the tag ID
+        tag_id = tag.getId()
+        
+        # If the tag ID is greater than 16, its a false detection
+        if tag_id > 16:  
+            continue
+            
+        # Draw a green polyline around the AprilTag
+        points = []
+        for i in range(4):
+            corner = (int(tag.getCorner(i).x),int(tag.getCorner(i).y))
+            points.append(corner)
+        points = numpy.array(points, dtype=numpy.int32).reshape((-1,1,2))
+        cv2.polylines(frame, [points], True, (0, 255, 0), 5)
 
+    return frame
 
 
 # Function to check the game state and decide what to do next
@@ -136,20 +156,15 @@ def game_logic(frame, detector, vision_nt):
         # Get the details of that target tag
         target_tag = get_target(tags, target_id) 
         # And turn towards the target until we are "locked on"
-        target_locked = orient_to_target(target_tag, vision_nt)          
+        target_locked = orient_to_target(target_tag, vision_nt)   
+        optimize_distance(target_tag, vision_nt)
     # If the target is not found
     else:        
         # Just sit there.
-        stop_turning(vision_nt)                                           
+        stop_turning(vision_nt) 
+        drive(vision_nt, 0)
     
-    # If the target is in the optimal orientation and we are "locked on"
-    if target_locked:                                                   
-        # Figure out how far away it is and drive towards it or away from it
-        optimize_distance(target_tag, vision_nt) 
-    # Otherwise
-    else:
-        # Stop driving forward or backward unless you're locked on
-        drive(vision_nt, 0)                                             
+                                             
 
 
     
@@ -200,9 +215,11 @@ def main():
         # Run game logic 
         game_logic(frame, detector, vision_nt)
         
+        # Draw on the video
+        tags = detect_april_tags(frame, detector)
+        results = draw_tags_on_frame(frame, tags)      
         
-        
-        output.putFrame(frame)        
+        output.putFrame(results)        
         
         time.sleep(0.1)
 
