@@ -10,6 +10,137 @@ teamnumber = 9668
 camera_width = 960
 camera_height = 640
 
+from ntcore import NetworkTables
+
+# Initialize NetworkTables (replace with your server IP)
+NetworkTables.initialize(server='10.96.68.2')  # Replace with your RoboRIO's IP
+table = NetworkTables.getTable('Controller')  # Name your table as needed
+
+class Controller:
+    _instance = None  # Singleton instance
+
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super(Controller, cls).__new__(cls)
+            cls._instance._initialize()
+        return cls._instance
+
+    def _initialize(self):
+        # Initialize all Xbox controller buttons and axes
+        # Axes (joysticks and triggers range from -1.0 to 1.0)
+        self.left_joy_x = 0.0
+        self.left_joy_y = 0.0
+        self.right_joy_x = 0.0
+        self.right_joy_y = 0.0
+        self.left_trigger = 0.0
+        self.right_trigger = 0.0
+        
+        # Buttons (Boolean values)
+        self.a_button = False
+        self.b_button = False
+        self.x_button = False
+        self.y_button = False
+        self.left_bumper = False
+        self.right_bumper = False
+        self.back_button = False
+        self.start_button = False
+        self.left_stick_button = False
+        self.right_stick_button = False
+        self.dpad_up = False
+        self.dpad_down = False
+        self.dpad_left = False
+        self.dpad_right = False
+
+    # Setter methods for each axis
+    def setLeftJoyX(self, value):
+        self.left_joy_x = value
+
+    def setLeftJoyY(self, value):
+        self.left_joy_y = value
+
+    def setRightJoyX(self, value):
+        self.right_joy_x = value
+
+    def setRightJoyY(self, value):
+        self.right_joy_y = value
+
+    def setLeftTrigger(self, value):
+        self.left_trigger = value
+
+    def setRightTrigger(self, value):
+        self.right_trigger = value
+
+    # Setter methods for each button
+    def setAButton(self, pressed):
+        self.a_button = pressed
+
+    def setBButton(self, pressed):
+        self.b_button = pressed
+
+    def setXButton(self, pressed):
+        self.x_button = pressed
+
+    def setYButton(self, pressed):
+        self.y_button = pressed
+
+    def setLeftBumper(self, pressed):
+        self.left_bumper = pressed
+
+    def setRightBumper(self, pressed):
+        self.right_bumper = pressed
+
+    def setBackButton(self, pressed):
+        self.back_button = pressed
+
+    def setStartButton(self, pressed):
+        self.start_button = pressed
+
+    def setLeftStickButton(self, pressed):
+        self.left_stick_button = pressed
+
+    def setRightStickButton(self, pressed):
+        self.right_stick_button = pressed
+
+    def setDpadUp(self, pressed):
+        self.dpad_up = pressed
+
+    def setDpadDown(self, pressed):
+        self.dpad_down = pressed
+
+    def setDpadLeft(self, pressed):
+        self.dpad_left = pressed
+
+    def setDpadRight(self, pressed):
+        self.dpad_right = pressed
+
+    # Push method to send all values to NetworkTables
+    def publish(self):
+        # Push axes
+        table.putNumber('leftJoyX', self.left_joy_x)
+        table.putNumber('leftJoyY', self.left_joy_y)
+        table.putNumber('rightJoyX', self.right_joy_x)
+        table.putNumber('rightJoyY', self.right_joy_y)
+        table.putNumber('leftTrigger', self.left_trigger)
+        table.putNumber('rightTrigger', self.right_trigger)
+
+        # Push buttons
+        table.putBoolean('aButton', self.a_button)
+        table.putBoolean('bButton', self.b_button)
+        table.putBoolean('xButton', self.x_button)
+        table.putBoolean('yButton', self.y_button)
+        table.putBoolean('leftBumper', self.left_bumper)
+        table.putBoolean('rightBumper', self.right_bumper)
+        table.putBoolean('backButton', self.back_button)
+        table.putBoolean('startButton', self.start_button)
+        table.putBoolean('leftStickButton', self.left_stick_button)
+        table.putBoolean('rightStickButton', self.right_stick_button)
+        table.putBoolean('dpadUp', self.dpad_up)
+        table.putBoolean('dpadDown', self.dpad_down)
+        table.putBoolean('dpadLeft', self.dpad_left)
+        table.putBoolean('dpadRight', self.dpad_right)
+
+controller = Controller()
+
 flow_field = [
     [ # Field 0 - Flow to center
         [(0.9, 1), (0.7, 1), (0.5, 1), (0.3, 1), (0.1, 1), (0, 1), (-0.1, 1), (-0.3, 1), (-0.5, 1), (-0.7, 1), (-0.9, 1)],
@@ -81,15 +212,8 @@ def get_target(tags, targetid):
     return targettag
 
 
-# Function to stop
-def stop(vision_nt):
-    vision_nt.putNumber("X_Axis", 0.00)
-    vision_nt.putNumber("Y_Axis", 0.00)
-    vision_nt.putNumber("Z_Axis", 0.00)
-
-
 # Function to orient to target 
-def orient_to_target(tag, vision_nt):
+def orient_to_target(tag):
     # target is not locked by default
     targetlocked = False
     
@@ -109,16 +233,15 @@ def orient_to_target(tag, vision_nt):
     # Expected range: -0.9 through 0.9 
     x = (LeftSideLength - RightSideLength) / CloserSideLength
     x = round(x, 2)
-    vision_nt.putNumber("X_Axis", x)
-    
+    controller.setLeftJoyX(x)
+
     # If close side length is greater than 80% of of the camera's height, we are too close, the value is negative. Otherwise it is positive. 
     # Expected range: -0.2 through 0.8 
     desired_size_ratio = 0.8 # 80% of the camera height
     
     y = -(CloserSideLength / camera_height - desired_size_ratio)
     y = round(y, 2)
-    vision_nt.putNumber("Y_Axis", y)
-    
+    controller.setLeftJoyY(y)
     
     # Calculate distance from center relative to camera width 
     # Expected range: -1.0 through 1.0
@@ -126,8 +249,7 @@ def orient_to_target(tag, vision_nt):
     # Dampen turning value based on our strafe value to prevent overturning
     z *= (1 - abs(x)) 
     z = round(z, 2) 
-    vision_nt.putNumber("Z_Axis", z)
-    
+    controller.setRightJoyX(z)
     
     # Target is considered locked if this distance is within 5% of center
     if ((abs(x) < 0.05) and (abs(y) < 0.05) and (abs(z) < 0.05)):                                          
@@ -165,7 +287,7 @@ def draw_tags_on_frame(frame, tags):
 
 
 # Function to check the game state and decide what to do next
-def game_logic(frame, detector, vision_nt):
+def game_logic(frame, detector):
     # This game, follow me, is simple 
     # We want to lock onto a target AprilTag
     # Turn towards it and then maintain a certain distance away from it
@@ -188,12 +310,16 @@ def game_logic(frame, detector, vision_nt):
         # Get the details of that target tag
         target_tag = get_target(tags, target_id) 
         # And turn towards the target until we are "locked on"
-        target_locked = orient_to_target(target_tag, vision_nt)   
+        target_locked = orient_to_target(target_tag)   
         
     # If the target is not found
     else:        
         # Just sit there.
-        stop(vision_nt) 
+        controller.setLeftJoyX(0)
+        controller.setLeftJoyY(0)
+        controller.setRightJoyX(0)
+
+    controller.publish()    
         
 
 def main():
@@ -211,13 +337,6 @@ def main():
     detector = robotpy_apriltag.AprilTagDetector()
     detector.addFamily("tag36h11")
 
-    print("Starting NetworkTables")
-    # Start NetworkTables and get an instance
-    ntinst = ntcore.NetworkTableInstance.getDefault()
-    ntinst.startClient4("10.96.68.2")    
-    ntinst.setServerTeam(teamnumber) 
-    vision_nt = ntinst.getTable("Vision")  
-    
     print("Entering game logic")
     # Enter main loop to run game logic
     while True:
@@ -225,7 +344,7 @@ def main():
         t, frame = cvSink.grabFrame(frame)
         
         # Run game logic 
-        game_logic(frame, detector, vision_nt)
+        game_logic(frame, detector)
         
         # Draw tags on the video frame
         tags = detect_april_tags(frame, detector)
