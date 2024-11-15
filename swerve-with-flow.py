@@ -14,7 +14,76 @@ from ntcore import NetworkTables
 
 # Initialize NetworkTables (replace with your server IP)
 NetworkTables.initialize(server='10.96.68.2')  # Replace with your RoboRIO's IP
-table = NetworkTables.getTable('Controller')  # Name your table as needed
+ControllerTable = NetworkTables.getTable('Controller')  # Name your table as needed
+
+class FlowField:
+    def __init__(self, width, height, goal_x, goal_y):
+        self.width = width
+        self.height = height
+        self.cost_field = [[99 for _ in range(width)] for _ in range(height)]
+        self.cost_field[goal_y-1][goal_x-1] = 0
+        self.spread_costs_from_goal(goal_x, goal_y)
+
+    def spread_costs_from_goal(self, goal_x, goal_y):
+        for distance in range(1, max(self.width, self.height)):
+            for y in range(self.height):
+                for x in range(self.width):
+                    if self.cost_field[y][x] == distance - 1:
+                        for dy, dx in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+                            ny, nx = y + dy, x + dx
+                            if 0 <= ny < self.height and 0 <= nx < self.width:
+                                if self.cost_field[ny][nx] > distance:
+                                    self.cost_field[ny][nx] = distance
+
+
+    def add_obstacle(self, start_x, start_y, obstacle_width, obstacle_height):
+        for y in range(start_y-1, start_y + obstacle_height-1):
+            for x in range(start_x-1, start_x + obstacle_width-1):
+                self.cost_field[y][x] = 99
+
+    def print_flowfield(self):
+        # Format and print the cost field as a grid
+        for row in self.cost_field:
+            print(" ".join(f"{cell:2}" for cell in row))
+
+    # Calculate the best direction in degrees
+    def get_directions(self, current_x, current_y):
+        current_x = current_x-1
+        current_y = current_y-1        
+        directions = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)]
+        weights = []
+
+        
+        # Check all 8 neighbors (including diagonals)
+        for dy, dx in directions:
+            neighbor_x = current_x + dx
+            neighbor_y = current_y + dy
+
+            # Only calculate if within bounds
+            if 0 <= neighbor_x < self.width and 0 <= neighbor_y < self.height:
+                cost = self.cost_field[neighbor_y][neighbor_x]
+                if cost == 99:
+                    continue
+
+                weight = 1 / cost if cost != 0 else 1  # Inverse of cost, lower cost = stronger pull
+                angle = math.atan2(dy, dx)  # Angle in radians
+                angleindegrees = math.degrees(angle)
+                # print(f"{neighbor_x},{neighbor_y}:{cost}:{angleindegrees}{weight}")
+                
+                # Store the weighted vector (angle and weight)
+                weights.append((math.cos(angle) * weight, math.sin(angle) * weight))
+
+        # Sum the weighted vectors
+        sum_x = sum(v[0] for v in weights)
+        sum_y = sum(v[1] for v in weights)
+
+        
+        # Calculate the resultant angle
+        resultant_angle = math.atan2(sum_y, sum_x)  # Angle in radians
+
+        # Convert to degrees (0 degrees is north)
+        degrees = math.degrees(resultant_angle)
+        return (degrees + 360) % 360  # Ensure the angle is between 0 and 360 degrees
 
 class Controller:
     _instance = None  # Singleton instance
@@ -116,80 +185,32 @@ class Controller:
     # Push method to send all values to NetworkTables
     def publish(self):
         # Push axes
-        table.putNumber('leftJoyX', self.left_joy_x)
-        table.putNumber('leftJoyY', self.left_joy_y)
-        table.putNumber('rightJoyX', self.right_joy_x)
-        table.putNumber('rightJoyY', self.right_joy_y)
-        table.putNumber('leftTrigger', self.left_trigger)
-        table.putNumber('rightTrigger', self.right_trigger)
+        ControllerTable.putNumber('leftJoyX', self.left_joy_x)
+        ControllerTable.putNumber('leftJoyY', self.left_joy_y)
+        ControllerTable.putNumber('rightJoyX', self.right_joy_x)
+        ControllerTable.putNumber('rightJoyY', self.right_joy_y)
+        ControllerTable.putNumber('leftTrigger', self.left_trigger)
+        ControllerTable.putNumber('rightTrigger', self.right_trigger)
 
         # Push buttons
-        table.putBoolean('aButton', self.a_button)
-        table.putBoolean('bButton', self.b_button)
-        table.putBoolean('xButton', self.x_button)
-        table.putBoolean('yButton', self.y_button)
-        table.putBoolean('leftBumper', self.left_bumper)
-        table.putBoolean('rightBumper', self.right_bumper)
-        table.putBoolean('backButton', self.back_button)
-        table.putBoolean('startButton', self.start_button)
-        table.putBoolean('leftStickButton', self.left_stick_button)
-        table.putBoolean('rightStickButton', self.right_stick_button)
-        table.putBoolean('dpadUp', self.dpad_up)
-        table.putBoolean('dpadDown', self.dpad_down)
-        table.putBoolean('dpadLeft', self.dpad_left)
-        table.putBoolean('dpadRight', self.dpad_right)
+        ControllerTable.putBoolean('aButton', self.a_button)
+        ControllerTable.putBoolean('bButton', self.b_button)
+        ControllerTable.putBoolean('xButton', self.x_button)
+        ControllerTable.putBoolean('yButton', self.y_button)
+        ControllerTable.putBoolean('leftBumper', self.left_bumper)
+        ControllerTable.putBoolean('rightBumper', self.right_bumper)
+        ControllerTable.putBoolean('backButton', self.back_button)
+        ControllerTable.putBoolean('startButton', self.start_button)
+        ControllerTable.putBoolean('leftStickButton', self.left_stick_button)
+        ControllerTable.putBoolean('rightStickButton', self.right_stick_button)
+        ControllerTable.putBoolean('dpadUp', self.dpad_up)
+        ControllerTable.putBoolean('dpadDown', self.dpad_down)
+        ControllerTable.putBoolean('dpadLeft', self.dpad_left)
+        ControllerTable.putBoolean('dpadRight', self.dpad_right)
 
 controller = Controller()
 
-flow_field = [
-    [ # Field 0 - Flow to center
-        [(0.9, 1), (0.7, 1), (0.5, 1), (0.3, 1), (0.1, 1), (0, 1), (-0.1, 1), (-0.3, 1), (-0.5, 1), (-0.7, 1), (-0.9, 1)],
-        [(0.9, 1), (0.7, 1), (0.5, 1), (0.3, 1), (0.1, 1), (0, 1), (-0.1, 1), (-0.3, 1), (-0.5, 1), (-0.7, 1), (-0.9, 1)],
-        [(0.9, 1), (0.7, 1), (0.5, 1), (0.3, 1), (0.1, 1), (0, 1), (-0.1, 1), (-0.3, 1), (-0.5, 1), (-0.7, 1), (-0.9, 1)],
-        [(0.9, 1), (0.7, 1), (0.5, 1), (0.3, 1), (0.1, 1), (0, 1), (-0.1, 1), (-0.3, 1), (-0.5, 1), (-0.7, 1), (-0.9, 1)],
-        [(0.9, 1), (0.7, 1), (0.5, 1), (0.3, 1), (0.1, 1), (0, 1), (-0.1, 1), (-0.3, 1), (-0.5, 1), (-0.7, 1), (-0.9, 1)],
-        [(0.9, 1), (0.7, 1), (0.5, 1), (0.3, 1), (0.1, 1), (0, 1), (-0.1, 1), (-0.3, 1), (-0.5, 1), (-0.7, 1), (-0.9, 1)],
-        [(0.9, 0.7), (0.7, 0.7), (0.5, 0.7), (0.3, 0.7), (0.1, 0.7), (0, 0.7), (-0.1, 0.7), (-0.3, 0.7), (-0.5, 0.7), (-0.7, 0.7), (-0.9, 0.7)],
-        [(0.9, 0.5), (0.7, 0.5), (0.5, 0.5), (0.3, 0.5), (0.1, 0.5), (0, 0.5), (-0.1, 0.5), (-0.3, 0.5), (-0.5, 0.5), (-0.7, 0.5), (-0.9, 0.5)],
-        [(0.9, 0.3), (0.7, 0.3), (0.5, 0.3), (0.3, 0.3), (0.1, 0.3), (0, 0.3), (-0.1, 0.3), (-0.3, 0.3), (-0.5, 0.3), (-0.7, 0.3), (-0.9, 0.3)],
-        [(0.9, 0.1), (0.7, 0.1), (0.5, 0.1), (0.3, 0.1), (0.1, 0.1), (0, 0.1), (-0.1, 0.1), (-0.3, 0.1), (-0.5, 0.1), (-0.7, 0.1), (-0.9, 0.1)],
-        [(0.9, 0), (0.7, 0), (0.5, 0), (0.3, 0), (0.1, 0), (0, 0), (-0.1, 0), (-0.3, 0), (-0.5, 0), (-0.7, 0), (-0.9, 0)],
-        [(0.9, -0.1), (0.7, -0.1), (0.5, -0.1), (0.3, -0.1), (0.1, -0.1), (0, -0.1), (-0.1, -0.1), (-0.3, -0.1), (-0.5, -0.1), (-0.7, -0.1), (-0.9, -0.1)],
-        [(0.9, -0.3), (0.7, -0.3), (0.5, -0.3), (0.3, -0.3), (0.1, -0.3), (0, -0.3), (-0.1, -0.3), (-0.3, -0.3), (-0.5, -0.3), (-0.7, -0.3), (-0.9, -0.3)],
-        [(0.9, -0.5), (0.7, -0.5), (0.5, -0.5), (0.3, -0.5), (0.1, -0.5), (0, -0.5), (-0.1, -0.5), (-0.3, -0.5), (-0.5, -0.5), (-0.7, -0.5), (-0.9, -0.5)],
-        [(0.9, -0.7), (0.7, -0.7), (0.5, -0.7), (0.3, -0.7), (0.1, -0.7), (0, -0.7), (-0.1, -0.7), (-0.3, -0.7), (-0.5, -0.7), (-0.7, -0.7), (-0.9, -0.7)],
-        [(0.9, -1), (0.7, -1), (0.5, -1), (0.3, -1), (0.1, -1), (0, -1), (-0.1, -1), (-0.3, -1), (-0.5, -1), (-0.7, -1), (-0.9, -1)],
-        [(0.9, -1), (0.7, -1), (0.5, -1), (0.3, -1), (0.1, -1), (0, -1), (-0.1, -1), (-0.3, -1), (-0.5, -1), (-0.7, -1), (-0.9, -1)],
-        [(0.9, -1), (0.7, -1), (0.5, -1), (0.3, -1), (0.1, -1), (0, -1), (-0.1, -1), (-0.3, -1), (-0.5, -1), (-0.7, -1), (-0.9, -1)],
-        [(0.9, -1), (0.7, -1), (0.5, -1), (0.3, -1), (0.1, -1), (0, -1), (-0.1, -1), (-0.3, -1), (-0.5, -1), (-0.7, -1), (-0.9, -1)],
-        [(0.9, -1), (0.7, -1), (0.5, -1), (0.3, -1), (0.1, -1), (0, -1), (-0.1, -1), (-0.3, -1), (-0.5, -1), (-0.7, -1), (-0.9, -1)],
-        [(0.9, -1), (0.7, -1), (0.5, -1), (0.3, -1), (0.1, -1), (0, -1), (-0.1, -1), (-0.3, -1), (-0.5, -1), (-0.7, -1), (-0.9, -1)]      
-    ],
-    [ # Field 1 - Flow to starting corner
-        [(0, 0), (-0.1, 0), (-0.2, 0), (-0.5, 0), (-0.7, 0), (-1, 0), (-1, 0), (-1, 0), (-1, 0), (-1, 0), (-1, 0)],
-        [(0, -0.1), (-0.1, -0.1), (-0.2, -0.1), (-0.5, -0.1), (-0.7, -0.1), (-1, -0.1), (-1, -0.1), (-1, -0.1), (-1, -0.1), (-1, -0.1), (-1, -0.1)],
-        [(0, -0.3), (-0.1, -0.3), (-0.2, -0.3), (-0.5, -0.3), (-0.7, -0.3), (-1, -0.3), (-1, -0.3), (-1, -0.3), (-1, -0.3), (-1, -0.3), (-1, -0.3)],
-        [(0, -0.5), (-0.1, -0.5), (-0.2, -0.5), (-0.5, -0.5), (-0.7, -0.5), (-1, -0.5), (-1, -0.5), (-1, -0.5), (-1, -0.5), (-1, -0.5), (-1, -0.5)],
-        [(0, -0.7), (-0.1, -0.7), (-0.2, -0.7), (-0.5, -0.7), (-0.7, -0.7), (-1, -0.7), (-1, -0.7), (-1, -0.7), (-1, -0.7), (-1, -0.7), (-1, -0.7)],
-        [(0, -1), (-0.1, -1), (-0.2, -1), (-0.5, -1), (-0.7, -1), (-1, -1), (-1, -1), (-1, -1), (-1, -1), (-1, -1), (-1, -1)],
-        [(0, -1), (-0.1, -1), (-0.2, -1), (-0.5, -1), (-0.7, -1), (-1, -1), (-1, -1), (-1, -1), (-1, -1), (-1, -1), (-1, -1)],
-        [(0, -1), (-0.1, -1), (-0.2, -1), (-0.5, -1), (-0.7, -1), (-1, -1), (-1, -1), (-1, -1), (-1, -1), (-1, -1), (-1, -1)],
-        [(0, -1), (-0.1, -1), (-0.2, -1), (-0.5, -1), (-0.7, -1), (-1, -1), (-1, -1), (-1, -1), (-1, -1), (-1, -1), (-1, -1)],
-        [(0, -1), (-0.1, -1), (-0.2, -1), (-0.5, -1), (-0.7, -1), (-1, -1), (-1, -1), (-1, -1), (-1, -1), (-1, -1), (-1, -1)],
-        [(0, -1), (-0.1, -1), (-0.2, -1), (-0.5, -1), (-0.7, -1), (-1, -1), (-1, -1), (-1, -1), (-1, -1), (-1, -1), (-1, -1)],
-        [(0, -1), (-0.1, -1), (-0.2, -1), (-0.5, -1), (-0.7, -1), (-1, -1), (-1, -1), (-1, -1), (-1, -1), (-1, -1), (-1, -1)],
-        [(0, -1), (-0.1, -1), (-0.2, -1), (-0.5, -1), (-0.7, -1), (-1, -1), (-1, -1), (-1, -1), (-1, -1), (-1, -1), (-1, -1)],
-        [(0, -1), (-0.1, -1), (-0.2, -1), (-0.5, -1), (-0.7, -1), (-1, -1), (-1, -1), (-1, -1), (-1, -1), (-1, -1), (-1, -1)],
-        [(0, -1), (-0.1, -1), (-0.2, -1), (-0.5, -1), (-0.7, -1), (-1, -1), (-1, -1), (-1, -1), (-1, -1), (-1, -1), (-1, -1)],
-        [(0, -1), (-0.1, -1), (-0.2, -1), (-0.5, -1), (-0.7, -1), (-1, -1), (-1, -1), (-1, -1), (-1, -1), (-1, -1), (-1, -1)],
-        [(0, -1), (-0.1, -1), (-0.2, -1), (-0.5, -1), (-0.7, -1), (-1, -1), (-1, -1), (-1, -1), (-1, -1), (-1, -1), (-1, -1)],
-        [(0, -1), (-0.1, -1), (-0.2, -1), (-0.5, -1), (-0.7, -1), (-1, -1), (-1, -1), (-1, -1), (-1, -1), (-1, -1), (-1, -1)],
-        [(0, -1), (-0.1, -1), (-0.2, -1), (-0.5, -1), (-0.7, -1), (-1, -1), (-1, -1), (-1, -1), (-1, -1), (-1, -1), (-1, -1)],
-        [(0, -1), (-0.1, -1), (-0.2, -1), (-0.5, -1), (-0.7, -1), (-1, -1), (-1, -1), (-1, -1), (-1, -1), (-1, -1), (-1, -1)],
-        [(0, -1), (-0.1, -1), (-0.2, -1), (-0.5, -1), (-0.7, -1), (-1, -1), (-1, -1), (-1, -1), (-1, -1), (-1, -1), (-1, -1)]
 
-    ]
-]
 
 
 # Boolean function returns whether target was located
