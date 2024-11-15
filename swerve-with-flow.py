@@ -1,21 +1,21 @@
 import cv2
 import robotpy_apriltag
 from cscore import CameraServer
-import ntcore
+from ntcore import NetworkTables
 import time
 import numpy 
+import math
 
 # Constants
 teamnumber = 9668
 camera_width = 960
 camera_height = 640
+networktablesserver = '10.96.68.2'
 
-from ntcore import NetworkTables
 
-# Initialize NetworkTables (replace with your server IP)
-NetworkTables.initialize(server='10.96.68.2')  # Replace with your RoboRIO's IP
-ControllerTable = NetworkTables.getTable('Controller')  # Name your table as needed
+ 
 
+# A class for defining a field with obstacles that can give directions
 class FlowField:
     def __init__(self, width, height, goal_x, goal_y):
         self.width = width
@@ -83,18 +83,39 @@ class FlowField:
 
         # Convert to degrees (0 degrees is north)
         degrees = math.degrees(resultant_angle)
-        return (degrees + 360) % 360  # Ensure the angle is between 0 and 360 degrees
+        return (degrees + 360) % 360  
 
-class Controller:
+
+# A class for navigating a flow field
+class FlowFieldNavigator:
+    def __init__(self):
+        self.flowfield = None
+
+    def generate_flowfield(self, target_position):
+        # Logic to generate flowfield
+        self.flowfield = ...
+
+    def get_directions(self, current_position):
+        # Use flowfield to compute movement
+        return ...  # Direction vector
+
+
+# A class for emulating an Xbox controller over NetworkTables
+class NetworkController:
     _instance = None  # Singleton instance
+    
 
     def __new__(cls):
         if cls._instance is None:
-            cls._instance = super(Controller, cls).__new__(cls)
+            cls._instance = super(NetworkController, cls).__new__(cls)
             cls._instance._initialize()
         return cls._instance
 
     def _initialize(self):
+        # Initialize NetworkTables 
+        NetworkTables.initialize(server=networktablesserver)  
+        self.ControllerTable = NetworkTables.getTable('NetworkController') 
+
         # Initialize all Xbox controller buttons and axes
         # Axes (joysticks and triggers range from -1.0 to 1.0)
         self.left_joy_x = 0.0
@@ -185,32 +206,120 @@ class Controller:
     # Push method to send all values to NetworkTables
     def publish(self):
         # Push axes
-        ControllerTable.putNumber('leftJoyX', self.left_joy_x)
-        ControllerTable.putNumber('leftJoyY', self.left_joy_y)
-        ControllerTable.putNumber('rightJoyX', self.right_joy_x)
-        ControllerTable.putNumber('rightJoyY', self.right_joy_y)
-        ControllerTable.putNumber('leftTrigger', self.left_trigger)
-        ControllerTable.putNumber('rightTrigger', self.right_trigger)
+        self.ControllerTable.putNumber('leftJoyX', self.left_joy_x)
+        self.ControllerTable.putNumber('leftJoyY', self.left_joy_y)
+        self.ControllerTable.putNumber('rightJoyX', self.right_joy_x)
+        self.ControllerTable.putNumber('rightJoyY', self.right_joy_y)
+        self.ControllerTable.putNumber('leftTrigger', self.left_trigger)
+        self.ControllerTable.putNumber('rightTrigger', self.right_trigger)
 
         # Push buttons
-        ControllerTable.putBoolean('aButton', self.a_button)
-        ControllerTable.putBoolean('bButton', self.b_button)
-        ControllerTable.putBoolean('xButton', self.x_button)
-        ControllerTable.putBoolean('yButton', self.y_button)
-        ControllerTable.putBoolean('leftBumper', self.left_bumper)
-        ControllerTable.putBoolean('rightBumper', self.right_bumper)
-        ControllerTable.putBoolean('backButton', self.back_button)
-        ControllerTable.putBoolean('startButton', self.start_button)
-        ControllerTable.putBoolean('leftStickButton', self.left_stick_button)
-        ControllerTable.putBoolean('rightStickButton', self.right_stick_button)
-        ControllerTable.putBoolean('dpadUp', self.dpad_up)
-        ControllerTable.putBoolean('dpadDown', self.dpad_down)
-        ControllerTable.putBoolean('dpadLeft', self.dpad_left)
-        ControllerTable.putBoolean('dpadRight', self.dpad_right)
-
-controller = Controller()
+        self.ControllerTable.putBoolean('aButton', self.a_button)
+        self.ControllerTable.putBoolean('bButton', self.b_button)
+        self.ControllerTable.putBoolean('xButton', self.x_button)
+        self.ControllerTable.putBoolean('yButton', self.y_button)
+        self.ControllerTable.putBoolean('leftBumper', self.left_bumper)
+        self.ControllerTable.putBoolean('rightBumper', self.right_bumper)
+        self.ControllerTable.putBoolean('backButton', self.back_button)
+        self.ControllerTable.putBoolean('startButton', self.start_button)
+        self.ControllerTable.putBoolean('leftStickButton', self.left_stick_button)
+        self.ControllerTable.putBoolean('rightStickButton', self.right_stick_button)
+        self.ControllerTable.putBoolean('dpadUp', self.dpad_up)
+        self.ControllerTable.putBoolean('dpadDown', self.dpad_down)
+        self.ControllerTable.putBoolean('dpadLeft', self.dpad_left)
+        self.ControllerTable.putBoolean('dpadRight', self.dpad_right)
 
 
+# A class for tracking current position
+class OdometryManager:
+    _instance = None
+
+    @staticmethod
+    def get_instance():
+        if OdometryManager._instance is None:
+            OdometryManager()
+        return OdometryManager._instance
+
+    def __init__(self):
+        if OdometryManager._instance is not None:
+            raise Exception("This class is a singleton!")
+        OdometryManager._instance = self
+
+        # Initialize NetworkTables and the Pose table
+        NetworkTables.initialize(server=networktablesserver)  
+        self.pose_table = NetworkTables.getTable("Pose")
+
+        # Default position and orientation
+        self.current_position = (0.0, 0.0)  # X, Y coordinates
+        self.current_orientation = 0.0     # Z orientation (angle in degrees or radians)
+
+    def update_position(self):
+        """Fetch the latest position and orientation from the NetworkTables Pose table."""
+        x = self.pose_table.getNumber("X", 0.0)
+        y = self.pose_table.getNumber("Y", 0.0)
+        z = self.pose_table.getNumber("Z", 0.0)
+
+        self.current_position = (x, y)
+        self.current_orientation = z
+
+    def get_position(self):
+        """Return the current X, Y coordinates."""
+        return self.current_position
+
+    def get_orientation(self):
+        """Return the current orientation (Z value)."""
+        return self.current_orientation
+
+    def adjust_for_error(self, correction):
+        """
+        Apply a correction to the position.
+        :param correction: Tuple (dx, dy, dz) for X, Y, and orientation corrections.
+        """
+        dx, dy, dz = correction
+        x, y = self.current_position
+        self.current_position = (x + dx, y + dy)
+        self.current_orientation += dz
+
+        # Optionally, push these adjustments back to NetworkTables
+        self.pose_table.putNumber("X", self.current_position[0])
+        self.pose_table.putNumber("Y", self.current_position[1])
+        self.pose_table.putNumber("Z", self.current_orientation)
+
+
+# A class for aligning to AprilTags
+class AprilTagAligner:
+    def __init__(self):
+        pass
+
+    def align_to_tag(self, tag_id):
+        # Logic to align to the specified AprilTag
+        pass
+
+
+# A class for keeping track of the game stages and objectives
+class GameManager:
+    def __init__(self):
+        self.stage = 0
+        self.objectives = [
+            {"action": "navigate", "target": (5, 5)},   # Stage 1
+            {"action": "align", "tag_id": 1},           # Stage 2
+            {"action": "wait", "duration": 3},         # Stage 3
+            {"action": "navigate", "target": (10, 10)},# Stage 4
+            {"action": "align", "tag_id": 2},          # Stage 5
+            {"action": "wait", "duration": 3},         # Stage 6
+            {"action": "navigate", "target": (0, 0)},  # Stage 7
+        ]
+
+    def get_current_objective(self):
+        if self.stage < len(self.objectives):
+            return self.objectives[self.stage]
+        return None  # Game is complete
+
+    def advance_stage(self):        
+        self.stage += 1
+        print(f"Advancing to stage {self.stage}")
+        # print(f"Action: {self.objectives[self.stage]["action"]} ")
+        # print(f"Value: {self.objectives[self.stage][1]} ")
 
 
 # Boolean function returns whether target was located
@@ -249,6 +358,10 @@ def orient_to_target(tag):
     LeftSideLength = abs(UpperLeftPoint.y - LowerLeftPoint.y)
     RightSideLength = abs(UpperRightPoint.y - LowerRightPoint.y)
     CloserSideLength = max(LeftSideLength, RightSideLength)
+
+    # Grab the network XBox Controller
+    controller = NetworkController()
+
 
     # If the Left side is larger than the right side, we want to strafe right 
     # Expected range: -0.9 through 0.9 
@@ -309,12 +422,21 @@ def draw_tags_on_frame(frame, tags):
 
 # Function to check the game state and decide what to do next
 def game_logic(frame, detector):
-    # This game, follow me, is simple 
-    # We want to lock onto a target AprilTag
-    # Turn towards it and then maintain a certain distance away from it
-    
+    # New Game: Simulate a pickup and drop off.
+    # Start from a known position (0,0)
+    # Navigate to a pickup spot (5,5)
+    # Use an AprilTag to lock onto the pickup site and adjust position 
+    # Wait for 3 seconds 
+    # Navigate to a a dropoff spot (0,3)
+    # Use an AprilTag to lock onto the dropff site
+    # Wait for 3 seconds
+    # Return to start (0,0)
+ 
     # Detect all AprilTags
     tags = detect_april_tags(frame, detector)
+
+    # Grab the network XBox Controller
+    controller = NetworkController()
 
     # Start by assuming target is not located or locked on
     target_located = False
@@ -358,15 +480,48 @@ def main():
     detector = robotpy_apriltag.AprilTagDetector()
     detector.addFamily("tag36h11")
 
+    game_manager = GameManager()
+    odometry_manager = OdometryManager.get_instance()
+    flow_navigator = FlowFieldNavigator()
+    april_tag_aligner = AprilTagAligner()
+
+
     print("Entering game logic")
     # Enter main loop to run game logic
     while True:
         # Grab video frame 
         t, frame = cvSink.grabFrame(frame)
         
-        # Run game logic 
-        game_logic(frame, detector)
         
+        objective = game_manager.get_current_objective()
+        if not objective:
+            print("Game complete!")
+            break
+
+        odometry_manager.update_position()
+        current_position = odometry_manager.get_position()
+
+        if objective["action"] == "navigate":
+            flow_navigator.generate_flowfield(objective["target"])
+            direction = flow_navigator.get_directions(current_position)
+            # Send direction to NetworkController (not shown here)
+            if current_position == objective["target"]:  # Replace with an error threshold
+                game_manager.advance_stage()
+
+        elif objective["action"] == "align":
+            april_tag_aligner.align_to_tag(objective["tag_id"])
+            # Check alignment status
+            aligned = ...  # Replace with actual alignment check
+            if aligned:
+                game_manager.advance_stage()
+
+        elif objective["action"] == "wait":
+            import time
+            time.sleep(objective["duration"])
+            game_manager.advance_stage()
+
+
+
         # Draw tags on the video frame
         tags = detect_april_tags(frame, detector)
         results = draw_tags_on_frame(frame, tags)      
