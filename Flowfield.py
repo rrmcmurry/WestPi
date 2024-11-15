@@ -1,65 +1,87 @@
+import math
+
 class FlowField:
-    def __init__(self, width, height):
+    def __init__(self, width, height, goal_x, goal_y):
         self.width = width
         self.height = height
-        self.cost_field = [[9999 for _ in range(width)] for _ in range(height)]  # Initialize with high cost
-        self.initialize_cost_field()
-
-    # Initialize the cost field with a goal and spreading costs
-    def initialize_cost_field(self):
-        # Set the goal's position (e.g., bottom-right corner)
-        goal_x, goal_y = self.width - 1, self.height - 1
-        self.cost_field[goal_y][goal_x] = 0
-
-        # Spread costs from the goal
+        self.cost_field = [[99 for _ in range(width)] for _ in range(height)]
+        self.cost_field[goal_y-1][goal_x-1] = 0
         self.spread_costs_from_goal(goal_x, goal_y)
 
-    # Spread costs from the goal using Manhattan distance
     def spread_costs_from_goal(self, goal_x, goal_y):
         for distance in range(1, max(self.width, self.height)):
             for y in range(self.height):
                 for x in range(self.width):
-                    cost = abs(goal_x - x) + abs(goal_y - y)  # Manhattan distance
-                    if self.cost_field[y][x] > cost:
-                        self.cost_field[y][x] = cost
+                    if self.cost_field[y][x] == distance - 1:
+                        for dy, dx in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+                            ny, nx = y + dy, x + dx
+                            if 0 <= ny < self.height and 0 <= nx < self.width:
+                                if self.cost_field[ny][nx] > distance:
+                                    self.cost_field[ny][nx] = distance
 
-    # Add a static obstacle by marking cells with a high cost
+
     def add_obstacle(self, start_x, start_y, obstacle_width, obstacle_height):
-        for y in range(start_y, start_y + obstacle_height):
-            for x in range(start_x, start_x + obstacle_width):
-                self.cost_field[y][x] = 9999  # High cost for obstacles
+        for y in range(start_y-1, start_y + obstacle_height-1):
+            for x in range(start_x-1, start_x + obstacle_width-1):
+                self.cost_field[y][x] = 99
 
-    # Display the cost field (for debugging)
-    def print_cost_field(self):
+    def print_flowfield(self):
+        # Format and print the cost field as a grid
         for row in self.cost_field:
-            print(" ".join(f"{cell:4}" for cell in row))
+            print(" ".join(f"{cell:2}" for cell in row))
 
-    # Determine the best direction to move based on the current position
-    def get_best_direction(self, current_x, current_y):
-        best_cost = 9999
-        best_direction = None
+    # Calculate the best direction in degrees
+    def getdirections(self, current_x, current_y):
+        current_x = current_x-1
+        current_y = current_y-1
+        vectors = []
+        directions = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)]
+        weights = []
 
-        # Check all 4 possible directions (up, down, left, right)
-        if current_y > 0 and self.cost_field[current_y - 1][current_x] < best_cost:
-            best_cost = self.cost_field[current_y - 1][current_x]
-            best_direction = "up"
-        if current_y < self.height - 1 and self.cost_field[current_y + 1][current_x] < best_cost:
-            best_cost = self.cost_field[current_y + 1][current_x]
-            best_direction = "down"
-        if current_x > 0 and self.cost_field[current_y][current_x - 1] < best_cost:
-            best_cost = self.cost_field[current_y][current_x - 1]
-            best_direction = "left"
-        if current_x < self.width - 1 and self.cost_field[current_y][current_x + 1] < best_cost:
-            best_cost = self.cost_field[current_y][current_x + 1]
-            best_direction = "right"
+        
+        # Check all 8 neighbors (including diagonals)
+        for dy, dx in directions:
+            neighbor_x = current_x + dx
+            neighbor_y = current_y + dy
 
-        return best_direction
+            # Only calculate if within bounds
+            if 0 <= neighbor_x < self.width and 0 <= neighbor_y < self.height:
+                cost = self.cost_field[neighbor_y][neighbor_x]
+                if cost == 99:
+                    continue
 
-    
-field = FlowField(20, 10)  # 20x10 grid
-field.add_obstacle(9, 4, 2, 2)  # Add 2x2 obstacle in the center
-field.print_cost_field()  # Print the field for debugging
+                weight = 1 / cost if cost != 0 else 1  # Inverse of cost, lower cost = stronger pull
+                angle = math.atan2(dy, dx)  # Angle in radians
+                angleindegrees = math.degrees(angle)
+                # print(f"{neighbor_x},{neighbor_y}:{cost}:{angleindegrees}{weight}")
+                
+                # Store the weighted vector (angle and weight)
+                weights.append((math.cos(angle) * weight, math.sin(angle) * weight))
 
-current_x, current_y = 0, 0  # Robot's current position
-direction = field.get_best_direction(current_x, current_y)
-print(f"Move {direction}")
+        # Sum the weighted vectors
+        sum_x = sum(v[0] for v in weights)
+        sum_y = sum(v[1] for v in weights)
+
+        
+        # Calculate the resultant angle
+        resultant_angle = math.atan2(sum_y, sum_x)  # Angle in radians
+
+        # Convert to degrees (0 degrees is north)
+        degrees = math.degrees(resultant_angle)
+        return (degrees + 360) % 360  # Ensure the angle is between 0 and 360 degrees
+
+
+
+centerField = FlowField(21,21,11,11)
+centerField.add_obstacle(14,5,4,3)
+centerField.print_flowfield()
+
+
+currentx = 14
+currenty = 4
+
+direction = centerField.getdirections(currentx,currenty)
+
+
+print(f"From {currentx},{currenty} you want to move in {direction} degrees")
+
