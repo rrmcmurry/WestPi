@@ -7,9 +7,6 @@ import numpy
 import math
 
 # Constants
-teamnumber = 9668
-camera_width = 960
-camera_height = 640
 networktablesserver = '10.96.68.2'
 
 
@@ -203,7 +200,7 @@ class NetworkController:
     def setDpadRight(self, pressed):
         self.dpad_right = pressed
 
-    # Push method to send all values to NetworkTables
+    # Method to send all values to NetworkTables
     def publish(self):
         # Push axes
         self.ControllerTable.putNumber('leftJoyX', self.left_joy_x)
@@ -289,16 +286,137 @@ class OdometryManager:
 # A class for aligning to AprilTags
 class AprilTagAligner:
     def __init__(self):
+        print("Initializing Camera")
+        # Initialize the camera
+        camera_width = 960
+        camera_height = 640
+        CameraServer.enableLogging()
+        camera = CameraServer.startAutomaticCapture()
+        camera.setResolution(camera_width, camera_height)
+        cvSink = CameraServer.getVideo()
+        output = CameraServer.putVideo("Camera", camera_width, camera_height)
+        frame = numpy.zeros(shape=(camera_height, camera_width, 3), dtype=numpy.uint8)
+        
+        print("Initializing AprilTag detector")
+        # Initialize AprilTag Detector
+        detector = robotpy_apriltag.AprilTagDetector()
+        detector.addFamily("tag36h11")
         pass
-
+        
+    # Function that runs on every loop no matter what.
+    def periodic():
+        # Grab video frame 
+        t, frame = cvSink.grabFrame(frame)
+        # Detect all AprilTags
+        self.tags = detect_april_tags(frame, detector)
+        # Draw any tags found on frame
+        results = draw_tags_on_frame(frame, tags)
+        # Push the results out to the CameraServer
+        output.putFrame(results) 
+        return
+        
+    # Function to detect AprilTags in a frame
+    def detect_april_tags(self, frame, detector):
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        self.tags = detector.detect(gray)         
+        return self.tags
+        
     def align_to_tag(self, tag_id):
         # Logic to align to the specified AprilTag
         pass
 
+    # Boolean function returns whether target was located
+    def locate_targeted(self, targettagid):
+        targetlocated = False
+        for tag in self.tags:
+            tag_id = tag.getId()
+            if tag_id == targettagid:
+                targetlocated = True
+        return targetlocated
+        
+    # Returns the target tag object from a set of tags    
+    def get_targettag(sef, targettagid):
+        targettag = []
+        for tag in self.tags:
+            tag_id = tag.getId()
+            if tag_id == targetid:
+                targettag = tag
+        return targettag
+    
+    # Function to draw detected apriltags on a video frame
+    def draw_tags_on_frame(frame, tags):
+        for tag in tags:
+            # For each detected tag, get the tag ID
+            tag_id = tag.getId()
+            
+            # If the tag ID is greater than 16, its a false detection
+            if tag_id > 16:  
+                continue
+                
+            # Draw a green polyline around the AprilTag
+            points = []
+            for i in range(4):
+                corner = (int(tag.getCorner(i).x),int(tag.getCorner(i).y))
+                points.append(corner)
+            points = numpy.array(points, dtype=numpy.int32).reshape((-1,1,2))
+            cv2.polylines(frame, [points], True, (0, 255, 0), 5)
 
-# A class for keeping track of the game stages and objectives
+        return frame
+    
+    # Function to orient to target 
+    def orient_to_target(tag):
+        # target is not locked by default
+        targetlocked = False
+        
+        # Grab points from the tag
+        UpperLeftPoint = tag.getCorner(0)
+        UpperRightPoint = tag.getCorner(1)
+        LowerRightPoint = tag.getCorner(2)
+        LowerLeftPoint = tag.getCorner(3)
+        centerPoint = tag.getCenter()
+        
+        # Calculate pixel height of each side of the tag
+        LeftSideLength = abs(UpperLeftPoint.y - LowerLeftPoint.y)
+        RightSideLength = abs(UpperRightPoint.y - LowerRightPoint.y)
+        CloserSideLength = max(LeftSideLength, RightSideLength)
+
+        # Grab the network XBox Controller
+        controller = NetworkController()
+
+
+        # If the Left side is larger than the right side, we want to strafe right 
+        # Expected range: -0.9 through 0.9 
+        x = (LeftSideLength - RightSideLength) / CloserSideLength
+        x = round(x, 2)
+        controller.setLeftJoyX(x)
+
+        # If close side length is greater than 80% of of the camera's height, we are too close, the value is negative. Otherwise it is positive. 
+        # Expected range: -0.2 through 0.8 
+        desired_size_ratio = 0.8 # 80% of the camera height
+        
+        y = -(CloserSideLength / camera_height - desired_size_ratio)
+        y = round(y, 2)
+        controller.setLeftJoyY(y)
+        
+        # Calculate distance from center relative to camera width 
+        # Expected range: -1.0 through 1.0
+        z = (centerPoint.x - (camera_width / 2)) / (camera_width / 2) 
+        # Dampen turning value based on our strafe value to prevent overturning
+        z *= (1 - abs(x)) 
+        z = round(z, 2) 
+        controller.setRightJoyX(z)
+        
+        # Target is considered locked if this distance is within 5% of center
+        if ((abs(x) < 0.05) and (abs(y) < 0.05) and (abs(z) < 0.05)):                                          
+            targetlocked = True
+        
+        return targetlocked
+
+
+# A class for defining the stages of the game and the objectives in that stage
 class GameManager:
     def __init__(self):
+        self.objectivechanged = False
         self.stage = 0
         self.objectives = [
             {"action": "navigate", "target": (5, 5)},   # Stage 1
@@ -317,197 +435,53 @@ class GameManager:
 
     def advance_stage(self):        
         self.stage += 1
+        self.objectivechanged = True
         print(f"Advancing to stage {self.stage}")
-        # print(f"Action: {self.objectives[self.stage]["action"]} ")
-        # print(f"Value: {self.objectives[self.stage][1]} ")
-
-
-# Boolean function returns whether target was located
-def locate_target(tags, targetid):
-    targetlocated = False
-    for tag in tags:
-        tag_id = tag.getId()
-        if tag_id == targetid:
-            targetlocated = True 
-    return targetlocated
-
-
-# Returns the target tag object from a set of tags
-def get_target(tags, targetid):
-    targettag = []
-    for tag in tags:
-        tag_id = tag.getId()
-        if tag_id == targetid:
-            targettag = tag
-    return targettag
-
-
-# Function to orient to target 
-def orient_to_target(tag):
-    # target is not locked by default
-    targetlocked = False
-    
-    # Grab points from the tag
-    UpperLeftPoint = tag.getCorner(0)
-    UpperRightPoint = tag.getCorner(1)
-    LowerRightPoint = tag.getCorner(2)
-    LowerLeftPoint = tag.getCorner(3)
-    centerPoint = tag.getCenter()
-    
-    # Calculate pixel height of each side of the tag
-    LeftSideLength = abs(UpperLeftPoint.y - LowerLeftPoint.y)
-    RightSideLength = abs(UpperRightPoint.y - LowerRightPoint.y)
-    CloserSideLength = max(LeftSideLength, RightSideLength)
-
-    # Grab the network XBox Controller
-    controller = NetworkController()
-
-
-    # If the Left side is larger than the right side, we want to strafe right 
-    # Expected range: -0.9 through 0.9 
-    x = (LeftSideLength - RightSideLength) / CloserSideLength
-    x = round(x, 2)
-    controller.setLeftJoyX(x)
-
-    # If close side length is greater than 80% of of the camera's height, we are too close, the value is negative. Otherwise it is positive. 
-    # Expected range: -0.2 through 0.8 
-    desired_size_ratio = 0.8 # 80% of the camera height
-    
-    y = -(CloserSideLength / camera_height - desired_size_ratio)
-    y = round(y, 2)
-    controller.setLeftJoyY(y)
-    
-    # Calculate distance from center relative to camera width 
-    # Expected range: -1.0 through 1.0
-    z = (centerPoint.x - (camera_width / 2)) / (camera_width / 2) 
-    # Dampen turning value based on our strafe value to prevent overturning
-    z *= (1 - abs(x)) 
-    z = round(z, 2) 
-    controller.setRightJoyX(z)
-    
-    # Target is considered locked if this distance is within 5% of center
-    if ((abs(x) < 0.05) and (abs(y) < 0.05) and (abs(z) < 0.05)):                                          
-        targetlocked = True
-    
-    return targetlocked
-
-            
-# Function to detect AprilTags in a frame
-def detect_april_tags(frame, detector):
-    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    tags = detector.detect(gray)         
-    return tags
-
-
-# Function to draw detected apriltags on a video frame
-def draw_tags_on_frame(frame, tags):
-    for tag in tags:
-        # For each detected tag, get the tag ID
-        tag_id = tag.getId()
         
-        # If the tag ID is greater than 16, its a false detection
-        if tag_id > 16:  
-            continue
-            
-        # Draw a green polyline around the AprilTag
-        points = []
-        for i in range(4):
-            corner = (int(tag.getCorner(i).x),int(tag.getCorner(i).y))
-            points.append(corner)
-        points = numpy.array(points, dtype=numpy.int32).reshape((-1,1,2))
-        cv2.polylines(frame, [points], True, (0, 255, 0), 5)
-
-    return frame
-
-
-# Function to check the game state and decide what to do next
-def game_logic(frame, detector):
-    # New Game: Simulate a pickup and drop off.
-    # Start from a known position (0,0)
-    # Navigate to a pickup spot (5,5)
-    # Use an AprilTag to lock onto the pickup site and adjust position 
-    # Wait for 3 seconds 
-    # Navigate to a a dropoff spot (0,3)
-    # Use an AprilTag to lock onto the dropff site
-    # Wait for 3 seconds
-    # Return to start (0,0)
- 
-    # Detect all AprilTags
-    tags = detect_april_tags(frame, detector)
-
-    # Grab the network XBox Controller
-    controller = NetworkController()
-
-    # Start by assuming target is not located or locked on
-    target_located = False
-    target_locked = False
-    
-    # Set our target AprilTag ID to 1
-    target_id = 1   
-
-    # See if that target ID is in the set of tags detected
-    target_located = locate_target(tags, target_id)                      
-    
-    # If the target ID is found
-    if target_located:  
-        # Get the details of that target tag
-        target_tag = get_target(tags, target_id) 
-        # And turn towards the target until we are "locked on"
-        target_locked = orient_to_target(target_tag)   
+    def objective_has_changed(self):
+        changed = self.objectivechanged
+        self.objectivechanged = False
+        return changed
         
-    # If the target is not found
-    else:        
-        # Just sit there.
-        controller.setLeftJoyX(0)
-        controller.setLeftJoyY(0)
-        controller.setRightJoyX(0)
-
-    controller.publish()    
+  
         
-
+# Main Loop
 def main():
-    print("Initializing Camera")
-    # Initialize the camera 
-    CameraServer.enableLogging()
-    camera = CameraServer.startAutomaticCapture()
-    camera.setResolution(camera_width, camera_height)
-    cvSink = CameraServer.getVideo()
-    output = CameraServer.putVideo("Camera", camera_width, camera_height)
-    frame = numpy.zeros(shape=(camera_height, camera_width, 3), dtype=numpy.uint8)
-    
-    print("Initializing AprilTag detector")
-    # Initialize AprilTag Detector
-    detector = robotpy_apriltag.AprilTagDetector()
-    detector.addFamily("tag36h11")
 
-    game_manager = GameManager()
+    # Initialize class instances
+    game_manager = GameManager()    
     odometry_manager = OdometryManager.get_instance()
-    flow_navigator = FlowFieldNavigator()
+    navigator = FlowFieldNavigator()
     april_tag_aligner = AprilTagAligner()
-
+    controller = NetworkController()
 
     print("Entering game logic")
     # Enter main loop to run game logic
     while True:
-        # Grab video frame 
-        t, frame = cvSink.grabFrame(frame)
+
+        # Call periodic functions for things that need to update every time
+        april_tag_aligner.periodic()
         
-        
+        # Get our current objective from the game manager
         objective = game_manager.get_current_objective()
         if not objective:
             print("Game complete!")
             break
 
+        # Get our current position from the odometry manager
         odometry_manager.update_position()
         current_position = odometry_manager.get_position()
 
+        # If navigating
         if objective["action"] == "navigate":
-            flow_navigator.generate_flowfield(objective["target"])
-            direction = flow_navigator.get_directions(current_position)
+            if game_manager.objective_has_changed():
+                navigator.generate_flowfield(objective["target"])
+            direction = navigator.get_directions(current_position)
             # Send direction to NetworkController (not shown here)
             if current_position == objective["target"]:  # Replace with an error threshold
                 game_manager.advance_stage()
 
+        # If aligning to an April Tag
         elif objective["action"] == "align":
             april_tag_aligner.align_to_tag(objective["tag_id"])
             # Check alignment status
@@ -515,17 +489,15 @@ def main():
             if aligned:
                 game_manager.advance_stage()
 
-        elif objective["action"] == "wait":
-            import time
+        # If waiting
+        elif objective["action"] == "wait":            
             time.sleep(objective["duration"])
             game_manager.advance_stage()
-
-
-
-        # Draw tags on the video frame
-        tags = detect_april_tags(frame, detector)
-        results = draw_tags_on_frame(frame, tags)      
-        output.putFrame(results)        
+        
+        
+        
+        # Push controller values to the network controller
+        controller.publish()
         
         # Sleep 
         time.sleep(0.1)
