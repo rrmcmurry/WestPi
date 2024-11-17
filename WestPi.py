@@ -10,16 +10,12 @@ import math
 networktablesserver = '10.96.68.2'
 
 
- 
+    
 
 # A class for defining a field with obstacles that can give directions
 class FlowField:
-    def __init__(self, width, height, goal_x, goal_y):
-        self.width = width
-        self.height = height
-        self.cost_field = [[99 for _ in range(width)] for _ in range(height)]
-        self.cost_field[goal_y-1][goal_x-1] = 0
-        self.spread_costs_from_goal(goal_x, goal_y)
+    def __init__:
+        pass
 
     def spread_costs_from_goal(self, goal_x, goal_y):
         for distance in range(1, max(self.width, self.height)):
@@ -32,7 +28,19 @@ class FlowField:
                                 if self.cost_field[ny][nx] > distance:
                                     self.cost_field[ny][nx] = distance
 
-
+    def generate_flowfield(self, (goal_x, goal_y, goal_z):
+        self.width = 21
+        self.height = 11
+        self.goal_x = goal_x
+        self.goal_y = goal_y
+        self.goal_z = goal_z
+        self.cost_field = [[99 for _ in range(width)] for _ in range(height)]
+        self.cost_field[goal_y-1][goal_x-1] = 0
+        self.spread_costs_from_goal(goal_x-1, goal_y-1)
+        self.add_obstacle(10,5,2,2) # a 2x2 block right in the middle 
+        self.print_flowfield()
+        
+     
     def add_obstacle(self, start_x, start_y, obstacle_width, obstacle_height):
         for y in range(start_y-1, start_y + obstacle_height-1):
             for x in range(start_x-1, start_x + obstacle_width-1):
@@ -44,13 +52,12 @@ class FlowField:
             print(" ".join(f"{cell:2}" for cell in row))
 
     # Calculate the best direction in degrees
-    def get_directions(self, current_x, current_y):
+    def get_directions(self, current_x, current_y, current_z):
         current_x = current_x-1
         current_y = current_y-1        
         directions = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)]
         weights = []
 
-        
         # Check all 8 neighbors (including diagonals)
         for dy, dx in directions:
             neighbor_x = current_x + dx
@@ -78,23 +85,18 @@ class FlowField:
         # Calculate the resultant angle
         resultant_angle = math.atan2(sum_y, sum_x)  # Angle in radians
 
-        # Convert to degrees (0 degrees is north)
-        degrees = math.degrees(resultant_angle)
-        return (degrees + 360) % 360  
+        forward = math.cos(resultant_angle)
+        strafe = math.sin(resultant_angle)
 
-
-# A class for navigating a flow field
-class FlowFieldNavigator:
-    def __init__(self):
-        self.flowfield = None
-
-    def generate_flowfield(self, target_position):
-        # Logic to generate flowfield
-        self.flowfield = ...
-
-    def get_directions(self, current_position):
-        # Use flowfield to compute movement
-        return ...  # Direction vector
+        controller = NetworkController()
+        controller.setLeftJoyY(forward)
+        controller.setLeftJoyX(strafe)
+     
+        # really need to work on this - This should kind of work for now... but I want to turn faster until we reach the goal_z - Probably need a PID controller function for this
+        turn = self.goal_z - current_z             
+        controller.setRightJoyX(turn)
+        
+        return 
 
 
 # A class for emulating an Xbox controller over NetworkTables
@@ -416,7 +418,7 @@ class AprilTagAligner:
 # A class for defining the stages of the game and the objectives in that stage
 class GameManager:
     def __init__(self):
-        self.objectivechanged = False
+        self.objectivechanged = True
         self.stage = 0
         self.objectives = [
             {"action": "navigate", "target": (5, 5)},   # Stage 1
@@ -451,7 +453,7 @@ def main():
     # Initialize class instances
     game_manager = GameManager()    
     odometry_manager = OdometryManager.get_instance()
-    navigator = FlowFieldNavigator()
+    navigator = FlowField()
     april_tag_aligner = AprilTagAligner()
     controller = NetworkController()
 
@@ -471,12 +473,14 @@ def main():
         # Get our current position from the odometry manager
         odometry_manager.update_position()
         current_position = odometry_manager.get_position()
+        current_alignment = odometry_manager.get_alignment()
 
         # If navigating
         if objective["action"] == "navigate":
             if game_manager.objective_has_changed():
                 navigator.generate_flowfield(objective["target"])
-            direction = navigator.get_directions(current_position)
+            navigator.get_directions(current_position)
+            navigator.align_to_target(current_alignment)
             # Send direction to NetworkController (not shown here)
             if current_position == objective["target"]:  # Replace with an error threshold
                 game_manager.advance_stage()
