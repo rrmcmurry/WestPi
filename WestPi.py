@@ -362,10 +362,17 @@ class AprilTagAligner:
         
     def align_to_tag(self, tag_id):
         # Logic to align to the specified AprilTag
-        pass
+        aligned = False
+        if self.target_located(tag_id):
+            aligned = self.orient_to_target(self.get_targettag(tag_id))
+        else:
+            print(f"Error: Cannot find tag {tag_id}")
+
+        return aligned
+        
 
     # Boolean function returns whether target was located
-    def locate_targeted(self, targettagid):
+    def target_located(self, targettagid):
         targetlocated = False
         for tag in self.tags:
             tag_id = tag.getId()
@@ -522,6 +529,7 @@ def main():
                 navigator.set_goalorientation(targetorientation)
                 navigator.generate_flowfield(targetx, targety)
 
+            # Navigate to target and align to target alignment
             ontarget = navigator.get_directions(current_positionx, current_positiony)
             aligned = navigator.align_to_target(current_alignment)
     
@@ -530,9 +538,7 @@ def main():
 
         # If aligning to an April Tag
         elif objective["action"] == "align":
-            april_tag_aligner.align_to_tag(objective["tag_id"])
-            # Check alignment status
-            aligned = ...  # Replace with actual alignment check
+            aligned = april_tag_aligner.align_to_tag(objective["tag_id"])                 
             if aligned:
                 game_manager.advance_stage()
 
