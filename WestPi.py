@@ -14,7 +14,8 @@ networktablesserver = '10.96.68.2'
 
 # A class for defining a field with obstacles that can give directions
 class FlowField:
-    def __init__:
+    def __init__(self):
+        self.controller = NetworkController()
         pass
 
     def spread_costs_from_goal(self, goal_x, goal_y):
@@ -28,13 +29,12 @@ class FlowField:
                                 if self.cost_field[ny][nx] > distance:
                                     self.cost_field[ny][nx] = distance
 
-    def generate_flowfield(self, (goal_x, goal_y, goal_z):
+    def generate_flowfield(self, goal_x, goal_y):
         self.width = 21
         self.height = 11
         self.goal_x = goal_x
         self.goal_y = goal_y
-        self.goal_z = goal_z
-        self.cost_field = [[99 for _ in range(width)] for _ in range(height)]
+        self.cost_field = [[99 for _ in range(self.width)] for _ in range(self.height)]
         self.cost_field[goal_y-1][goal_x-1] = 0
         self.spread_costs_from_goal(goal_x-1, goal_y-1)
         self.add_obstacle(10,5,2,2) # a 2x2 block right in the middle 
@@ -51,11 +51,25 @@ class FlowField:
         for row in self.cost_field:
             print(" ".join(f"{cell:2}" for cell in row))
 
+    def set_goalorientation(self, goalorienation):
+        self.goal_z = goalorienation
+
+    def align_to_target(self, currentorientation):
+        # really need to work on this - This should kind of work for now... but I want to turn faster until we reach goal_z - Probably need a PID controller function for this
+        turn = self.goal_z - currentorientation             
+        self.controller.setRightJoyX(turn)
+        return
+
     # Calculate the best direction in degrees
     def get_directions(self, current_x, current_y, current_z):
+        # Adjusting for the zero based table
         current_x = current_x-1
         current_y = current_y-1        
+
+        # A set of directions for neighboring cells
         directions = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)]
+
+        # An array to store x and y values multiplied by their cost
         weights = []
 
         # Check all 8 neighbors (including diagonals)
@@ -65,36 +79,40 @@ class FlowField:
 
             # Only calculate if within bounds
             if 0 <= neighbor_x < self.width and 0 <= neighbor_y < self.height:
+                # Grab the cost of this field
                 cost = self.cost_field[neighbor_y][neighbor_x]
+                # Skip it if the cost is 99
                 if cost == 99:
                     continue
 
-                weight = 1 / cost if cost != 0 else 1  # Inverse of cost, lower cost = stronger pull
-                angle = math.atan2(dy, dx)  # Angle in radians
-                angleindegrees = math.degrees(angle)
-                # print(f"{neighbor_x},{neighbor_y}:{cost}:{angleindegrees}{weight}")
-                
+                # Weight is the inverse of cost, lower cost = stronger pull
+                weight = 1 / cost if cost != 0 else 1  
+
+                # Convert direction into an angle in radians
+                angle = math.atan2(dy, dx)  
+
+                # x value = math.cos(angle) 
+                # y value = math.sin(angle)
+                # Weighted x value = math.cos(angle) * weight
+                # Weighted y value = math.sin(angle) * weight
+                #                
                 # Store the weighted vector (angle and weight)
                 weights.append((math.cos(angle) * weight, math.sin(angle) * weight))
 
-        # Sum the weighted vectors
+        # Add up the weighted vectors
         sum_x = sum(v[0] for v in weights)
         sum_y = sum(v[1] for v in weights)
 
-        
-        # Calculate the resultant angle
-        resultant_angle = math.atan2(sum_y, sum_x)  # Angle in radians
+        # Convert this to an angle in Radians
+        resultant_angle = math.atan2(sum_y, sum_x)  
 
+        # Use resulting angle to calculate controller values between -1 and 1
         forward = math.cos(resultant_angle)
         strafe = math.sin(resultant_angle)
 
-        controller = NetworkController()
-        controller.setLeftJoyY(forward)
-        controller.setLeftJoyX(strafe)
-     
-        # really need to work on this - This should kind of work for now... but I want to turn faster until we reach the goal_z - Probably need a PID controller function for this
-        turn = self.goal_z - current_z             
-        controller.setRightJoyX(turn)
+        # Set controller values
+        self.controller.setLeftJoyY(forward)
+        self.controller.setLeftJoyX(strafe)
         
         return 
 
@@ -279,10 +297,12 @@ class OdometryManager:
         self.current_position = (x + dx, y + dy)
         self.current_orientation += dz
 
+        """
         # Optionally, push these adjustments back to NetworkTables
         self.pose_table.putNumber("X", self.current_position[0])
         self.pose_table.putNumber("Y", self.current_position[1])
         self.pose_table.putNumber("Z", self.current_orientation)
+        """
 
 
 # A class for aligning to AprilTags
@@ -290,31 +310,31 @@ class AprilTagAligner:
     def __init__(self):
         print("Initializing Camera")
         # Initialize the camera
-        camera_width = 960
-        camera_height = 640
+        self.camera_width = 960
+        self.camera_height = 640
         CameraServer.enableLogging()
         camera = CameraServer.startAutomaticCapture()
-        camera.setResolution(camera_width, camera_height)
-        cvSink = CameraServer.getVideo()
-        output = CameraServer.putVideo("Camera", camera_width, camera_height)
-        frame = numpy.zeros(shape=(camera_height, camera_width, 3), dtype=numpy.uint8)
+        camera.setResolution(self.camera_width, self.camera_height)
+        self.cvSink = CameraServer.getVideo()
+        self.output = CameraServer.putVideo("Camera", self.camera_width, self.camera_height)
+        frame = numpy.zeros(shape=(self.camera_height, self.camera_width, 3), dtype=numpy.uint8)
         
         print("Initializing AprilTag detector")
         # Initialize AprilTag Detector
-        detector = robotpy_apriltag.AprilTagDetector()
-        detector.addFamily("tag36h11")
+        self.detector = robotpy_apriltag.AprilTagDetector()
+        self.detector.addFamily("tag36h11")
         pass
         
     # Function that runs on every loop no matter what.
-    def periodic():
+    def periodic(self):
         # Grab video frame 
-        t, frame = cvSink.grabFrame(frame)
+        t, frame = self.cvSink.grabFrame(frame)
         # Detect all AprilTags
-        self.tags = detect_april_tags(frame, detector)
+        self.tags = self.detect_april_tags(frame, self.detector)
         # Draw any tags found on frame
-        results = draw_tags_on_frame(frame, tags)
+        results = self.draw_tags_on_frame(frame, self.tags)
         # Push the results out to the CameraServer
-        output.putFrame(results) 
+        self.output.putFrame(results) 
         return
         
     # Function to detect AprilTags in a frame
@@ -337,11 +357,11 @@ class AprilTagAligner:
         return targetlocated
         
     # Returns the target tag object from a set of tags    
-    def get_targettag(sef, targettagid):
+    def get_targettag(self, targettagid):
         targettag = []
         for tag in self.tags:
             tag_id = tag.getId()
-            if tag_id == targetid:
+            if tag_id == targettagid:
                 targettag = tag
         return targettag
     
@@ -366,7 +386,7 @@ class AprilTagAligner:
         return frame
     
     # Function to orient to target 
-    def orient_to_target(tag):
+    def orient_to_target(self, tag):
         # target is not locked by default
         targetlocked = False
         
@@ -396,13 +416,13 @@ class AprilTagAligner:
         # Expected range: -0.2 through 0.8 
         desired_size_ratio = 0.8 # 80% of the camera height
         
-        y = -(CloserSideLength / camera_height - desired_size_ratio)
+        y = -(CloserSideLength / self.camera_height - desired_size_ratio)
         y = round(y, 2)
         controller.setLeftJoyY(y)
         
         # Calculate distance from center relative to camera width 
         # Expected range: -1.0 through 1.0
-        z = (centerPoint.x - (camera_width / 2)) / (camera_width / 2) 
+        z = (centerPoint.x - (self.camera_width / 2)) / (self.camera_width / 2) 
         # Dampen turning value based on our strafe value to prevent overturning
         z *= (1 - abs(x)) 
         z = round(z, 2) 
@@ -421,13 +441,13 @@ class GameManager:
         self.objectivechanged = True
         self.stage = 0
         self.objectives = [
-            {"action": "navigate", "target": (5, 5)},   # Stage 1
+            {"action": "navigate", "target": (5, 5), "orientation": 0},   # Stage 1
             {"action": "align", "tag_id": 1},           # Stage 2
             {"action": "wait", "duration": 3},         # Stage 3
-            {"action": "navigate", "target": (10, 10)},# Stage 4
+            {"action": "navigate", "target": (10, 10), "orientation":180},# Stage 4
             {"action": "align", "tag_id": 2},          # Stage 5
             {"action": "wait", "duration": 3},         # Stage 6
-            {"action": "navigate", "target": (0, 0)},  # Stage 7
+            {"action": "navigate", "target": (0, 0), "orientation":0},  # Stage 7
         ]
 
     def get_current_objective(self):
@@ -477,8 +497,12 @@ def main():
 
         # If navigating
         if objective["action"] == "navigate":
+
             if game_manager.objective_has_changed():
-                navigator.generate_flowfield(objective["target"])
+                targetorientation = objective["orientation"]
+                targetposition = objective["target"]
+                navigator.generate_flowfield(targetorientation)
+                
             navigator.get_directions(current_position)
             navigator.align_to_target(current_alignment)
             # Send direction to NetworkController (not shown here)

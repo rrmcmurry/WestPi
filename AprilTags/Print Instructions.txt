@@ -1,0 +1,43 @@
+See page 36 of manual for image
+
+To print AprilTags.
+
+Open in Paint.net
+
+Resize to width: 8.13 inches (8 1/8th) use nearest neighbor
+
+Modify canvas size to 8.5 x 11 inches Anchor Top
+
+Text Centered at 420, 900, Calibri Size 48: "ID: {ID}"
+
+
+Autohotkey to paint.net full screen:
+
+TagID=1
+
+
+F1::
+{
+Send, ^r
+
+Activate("Resize")
+Send, {TAB 4}8.13
+Activate("Resize")
+Send, {TAB5}{ENTER}
+
+sleep, 500
+
+Send, ^+r
+Activate("Canvas Size")
+Send, {TAB 4}8.5{TAB 2}11.0
+Activate("Canvas Size")
+Send, {TAB 2}{ENTER}
+
+sleep, 500
+
+MouseClick, left,  1309,  1134
+sleep, 500
+Send, ID: %TagID%
+
+TagID++ 
+}
