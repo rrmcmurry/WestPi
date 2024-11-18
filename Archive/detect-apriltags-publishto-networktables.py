@@ -94,7 +94,7 @@ def main():
     else: 
         ntinst.startClient4("10.96.68.2")
         
-    ntinst.setServerTeam(teamnumber) 
+    # ntinst.setServerTeam(teamnumber) 
     vision_nt = ntinst.getTable("Vision")  # Create/Access "Vision" table
 
     

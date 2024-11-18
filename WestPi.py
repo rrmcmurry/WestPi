@@ -1,7 +1,8 @@
+from pickle import FALSE
 import cv2
 import robotpy_apriltag
 from cscore import CameraServer
-from ntcore import NetworkTables
+import ntcore
 import time
 import numpy 
 import math
@@ -35,15 +36,15 @@ class FlowField:
         self.goal_x = goal_x
         self.goal_y = goal_y
         self.cost_field = [[99 for _ in range(self.width)] for _ in range(self.height)]
-        self.cost_field[goal_y-1][goal_x-1] = 0
-        self.spread_costs_from_goal(goal_x-1, goal_y-1)
+        self.cost_field[goal_y][goal_x] = 0
+        self.spread_costs_from_goal(goal_x, goal_y)
         self.add_obstacle(10,5,2,2) # a 2x2 block right in the middle 
         self.print_flowfield()
         
      
     def add_obstacle(self, start_x, start_y, obstacle_width, obstacle_height):
-        for y in range(start_y-1, start_y + obstacle_height-1):
-            for x in range(start_x-1, start_x + obstacle_width-1):
+        for y in range(start_y, start_y + obstacle_height):
+            for x in range(start_x, start_x + obstacle_width):
                 self.cost_field[y][x] = 99
 
     def print_flowfield(self):
@@ -55,16 +56,24 @@ class FlowField:
         self.goal_z = goalorienation
 
     def align_to_target(self, currentorientation):
-        # really need to work on this - This should kind of work for now... but I want to turn faster until we reach goal_z - Probably need a PID controller function for this
-        turn = self.goal_z - currentorientation             
+        aligned = False
+        turn = self.goal_z - currentorientation     
+        if turn == 0:
+            aligned = True
         self.controller.setRightJoyX(turn)
-        return
+        return aligned
 
     # Calculate the best direction in degrees
-    def get_directions(self, current_x, current_y, current_z):
-        # Adjusting for the zero based table
-        current_x = current_x-1
-        current_y = current_y-1        
+    def get_directions(self, current_x_float, current_y_float):
+        # Adjusting for the zero based table and rounding to an integer
+        current_x = round(current_x_float)
+        current_y = round(current_y_float)        
+
+        ontarget = False
+
+        if current_x == self.goal_x and current_y == self.goal_y:
+            ontarget = True
+
 
         # A set of directions for neighboring cells
         directions = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)]
@@ -110,11 +119,18 @@ class FlowField:
         forward = math.cos(resultant_angle)
         strafe = math.sin(resultant_angle)
 
+        forward = round(forward * 100)/100
+        strafe = round(strafe * 100)/100
+
         # Set controller values
-        self.controller.setLeftJoyY(forward)
-        self.controller.setLeftJoyX(strafe)
+        if ontarget:
+            self.controller.setLeftJoyY(0)
+            self.controller.setLeftJoyX(0)        
+        else:
+            self.controller.setLeftJoyY(forward)
+            self.controller.setLeftJoyX(strafe)
         
-        return 
+        return ontarget
 
 
 # A class for emulating an Xbox controller over NetworkTables
@@ -130,8 +146,8 @@ class NetworkController:
 
     def _initialize(self):
         # Initialize NetworkTables 
-        NetworkTables.initialize(server=networktablesserver)  
-        self.ControllerTable = NetworkTables.getTable('NetworkController') 
+        ntinst = ntcore.NetworkTableInstance.getDefault()        
+        self.ControllerTable = ntinst.getTable('NetworkController') 
 
         # Initialize all Xbox controller buttons and axes
         # Axes (joysticks and triggers range from -1.0 to 1.0)
@@ -263,8 +279,9 @@ class OdometryManager:
         OdometryManager._instance = self
 
         # Initialize NetworkTables and the Pose table
-        NetworkTables.initialize(server=networktablesserver)  
-        self.pose_table = NetworkTables.getTable("Pose")
+        ntinst = ntcore.NetworkTableInstance.getDefault() 
+        ntinst.startServer()
+        self.pose_table = ntinst.getTable("Pose")
 
         # Default position and orientation
         self.current_position = (0.0, 0.0)  # X, Y coordinates
@@ -317,7 +334,7 @@ class AprilTagAligner:
         camera.setResolution(self.camera_width, self.camera_height)
         self.cvSink = CameraServer.getVideo()
         self.output = CameraServer.putVideo("Camera", self.camera_width, self.camera_height)
-        frame = numpy.zeros(shape=(self.camera_height, self.camera_width, 3), dtype=numpy.uint8)
+        self.frame = numpy.zeros(shape=(self.camera_height, self.camera_width, 3), dtype=numpy.uint8)
         
         print("Initializing AprilTag detector")
         # Initialize AprilTag Detector
@@ -328,11 +345,11 @@ class AprilTagAligner:
     # Function that runs on every loop no matter what.
     def periodic(self):
         # Grab video frame 
-        t, frame = self.cvSink.grabFrame(frame)
+        t, self.frame = self.cvSink.grabFrame(self.frame)
         # Detect all AprilTags
-        self.tags = self.detect_april_tags(frame, self.detector)
+        self.tags = self.detect_april_tags(self.frame, self.detector)
         # Draw any tags found on frame
-        results = self.draw_tags_on_frame(frame, self.tags)
+        results = self.draw_tags_on_frame(self.frame, self.tags)
         # Push the results out to the CameraServer
         self.output.putFrame(results) 
         return
@@ -366,7 +383,7 @@ class AprilTagAligner:
         return targettag
     
     # Function to draw detected apriltags on a video frame
-    def draw_tags_on_frame(frame, tags):
+    def draw_tags_on_frame(self, frame, tags):
         for tag in tags:
             # For each detected tag, get the tag ID
             tag_id = tag.getId()
@@ -441,13 +458,13 @@ class GameManager:
         self.objectivechanged = True
         self.stage = 0
         self.objectives = [
-            {"action": "navigate", "target": (5, 5), "orientation": 0},   # Stage 1
-            {"action": "align", "tag_id": 1},           # Stage 2
-            {"action": "wait", "duration": 3},         # Stage 3
-            {"action": "navigate", "target": (10, 10), "orientation":180},# Stage 4
-            {"action": "align", "tag_id": 2},          # Stage 5
-            {"action": "wait", "duration": 3},         # Stage 6
-            {"action": "navigate", "target": (0, 0), "orientation":0},  # Stage 7
+            {"action": "navigate", "target": (5, 5), "orientation": 0},   # Stage 0
+            {"action": "align", "tag_id": 1},           # Stage 1
+            {"action": "wait", "duration": 3},         # Stage 2
+            {"action": "navigate", "target": (10, 10), "orientation":180},# Stage 3
+            {"action": "align", "tag_id": 2},          # Stage 4
+            {"action": "wait", "duration": 3},         # Stage 5
+            {"action": "navigate", "target": (1, 1), "orientation":0},  # Stage 6
         ]
 
     def get_current_objective(self):
@@ -493,20 +510,22 @@ def main():
         # Get our current position from the odometry manager
         odometry_manager.update_position()
         current_position = odometry_manager.get_position()
-        current_alignment = odometry_manager.get_alignment()
+        current_positionx, current_positiony = odometry_manager.get_position()
+        current_alignment = odometry_manager.get_orientation()
 
         # If navigating
         if objective["action"] == "navigate":
-
+            # On first round, set up navigator
             if game_manager.objective_has_changed():
                 targetorientation = objective["orientation"]
-                targetposition = objective["target"]
-                navigator.generate_flowfield(targetorientation)
-                
-            navigator.get_directions(current_position)
-            navigator.align_to_target(current_alignment)
-            # Send direction to NetworkController (not shown here)
-            if current_position == objective["target"]:  # Replace with an error threshold
+                targetx, targety = objective["target"]
+                navigator.set_goalorientation(targetorientation)
+                navigator.generate_flowfield(targetx, targety)
+
+            ontarget = navigator.get_directions(current_positionx, current_positiony)
+            aligned = navigator.align_to_target(current_alignment)
+    
+            if ontarget and aligned: 
                 game_manager.advance_stage()
 
         # If aligning to an April Tag
