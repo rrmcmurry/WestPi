@@ -577,7 +577,7 @@ def main():
         objective = game_manager.get_current_objective()
         if not objective:
             print("Game complete!")
-            break
+            continue
 
         # Get our current position from the odometry manager
         odometry_manager.update_position()
