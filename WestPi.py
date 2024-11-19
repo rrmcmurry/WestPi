@@ -366,6 +366,9 @@ class AprilTagAligner:
         self.output = CameraServer.putVideo("Camera", self.camera_width, self.camera_height)
         self.frame = numpy.zeros(shape=(self.camera_height, self.camera_width, 3), dtype=numpy.uint8)
         
+        self.OdometryMannager = OdometryManager.get_instance()
+        self.controller = NetworkController()
+
         print("Initializing AprilTag detector")
         # Initialize AprilTag Detector
         self.detector = robotpy_apriltag.AprilTagDetector()
@@ -456,37 +459,47 @@ class AprilTagAligner:
         RightSideLength = abs(UpperRightPoint.y - LowerRightPoint.y)
         CloserSideLength = max(LeftSideLength, RightSideLength)
 
-        # Grab the network XBox Controller
-        controller = NetworkController()
-
-
-        # If the Left side is larger than the right side, we want to strafe right 
-        # Expected range: -0.9 through 0.9 
-        x = (LeftSideLength - RightSideLength) / CloserSideLength
-        x = round(x, 2)
-        controller.setLeftJoyX(x)
-
-        # If close side length is greater than 80% of of the camera's height, we are too close, the value is negative. Otherwise it is positive. 
-        # Expected range: -0.2 through 0.8 
-        desired_size_ratio = 0.8 # 80% of the camera height
+        # STRAFE: If the Left side is larger than the right side, we want to strafe right 
+        """ expected values are between -0.5 and +0.5 """
+        strafe = (LeftSideLength - RightSideLength) / CloserSideLength
+        """ expected values are between -.75 and 0.75 """
+        strafe = strafe * 1.5 
         
-        y = -(CloserSideLength / self.camera_height - desired_size_ratio)
-        y = round(y, 2)
-        controller.setLeftJoyY(y)
         
-        # Calculate distance from center relative to camera width 
-        # Expected range: -1.0 through 1.0
-        z = (centerPoint.x - (self.camera_width / 2)) / (self.camera_width / 2) 
-        # Dampen turning value based on our strafe value to prevent overturning
-        z *= (1 - abs(x)) 
-        z = round(z, 2) 
-        controller.setRightJoyX(z)
+        # FORWARD: If close side length out of camera's height is greater than 80%, the value goes negative. Otherwise it is positive.         
+        """ expected values are -0.2 to +0.8 """
+        desired_size_ratio = 0.8 
+        forward = -(CloserSideLength / self.camera_height - desired_size_ratio)
+        """ expected values are now -0.25 to +1.0 """
+        forward = forward * 1.25 
+
+        # ROTATE: Calculate distance between center of apriltag and center of camera 
+        """ Expected range: -1.0 through 1.0 """
+        rotate = (centerPoint.x - (self.camera_width / 2)) / (self.camera_width / 2) 
+        """ Dampening rotation based on our current strafe value to prevent overturning """
+        rotate *= (1 - abs(strafe)) 
         
-        # Target is considered locked if this distance is within 15% of center
-        if ((abs(x) < 0.15) and (abs(y) < 0.15) and (abs(z) < 0.15)):                                          
+        
+        # Target is considered locked if robot oriented strafe, forward, and rotate values are all lower than 0.10
+        if ((abs(strafe) < 0.10) and (abs(forward) < 0.10) and (abs(rotate) < 0.10)):                                          
             targetlocked = True
-        
-        controller.publish()
+
+
+        # At this point forward and strafe are robot oriented. Translating to field oriented.
+        currentorientation = math.radians(self.OdometryMannager.get_orientation())
+        fieldforward = forward * math.cos(currentorientation) - strafe * math.sin(currentorientation)
+        fieldstrafe = forward * math.sin(currentorientation) + strafe * math.cos(currentorientation)
+
+        # Rounding everything to 2 decimals
+        fieldforward = round(fieldforward, 2)
+        fieldstrafe = round(fieldstrafe, 2)
+        rotate = round(rotate, 2) 
+
+        # Publishing values to the network controller
+        self.controller.setLeftJoyY(fieldforward)
+        self.controller.setLeftJoyX(fieldstrafe)
+        self.controller.setRightJoyX(rotate)
+        self.controller.publish()
 
         return targetlocked
 
