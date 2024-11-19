@@ -1,4 +1,3 @@
-from pickle import FALSE
 import cv2
 import robotpy_apriltag
 from cscore import CameraServer
