@@ -17,6 +17,9 @@ networktablesserver = '10.96.68.2'
 class FlowField:
     def __init__(self):
         self.controller = NetworkController()
+        # Initialize NetworkTables 
+        # ntinst = ntcore.NetworkTableInstance.getDefault()        
+        # self.FlowField = ntinst.getTable('FlowField') 
         pass
 
     def spread_costs_from_goal(self, goal_x, goal_y):
@@ -30,14 +33,14 @@ class FlowField:
                                 if self.cost_field[ny][nx] > distance:
                                     self.cost_field[ny][nx] = distance
 
-    def generate_flowfield(self, goal_x, goal_y):
+    def generate_flowfield(self, goal, orientation):
+        self.goal_x, self.goal_y = goal
+        self.goal_z = orientation
         self.width = 21
         self.height = 11
-        self.goal_x = goal_x
-        self.goal_y = goal_y
         self.cost_field = [[99 for _ in range(self.width)] for _ in range(self.height)]
-        self.cost_field[goal_y][goal_x] = 0
-        self.spread_costs_from_goal(goal_x, goal_y)
+        self.cost_field[self.goal_y][self.goal_x] = 0
+        self.spread_costs_from_goal(self.goal_x, self.goal_y)
         self.add_obstacle(10,5,2,2) # a 2x2 block right in the middle 
         self.print_flowfield()
         
@@ -49,31 +52,40 @@ class FlowField:
 
     def print_flowfield(self):
         # Format and print the cost field as a grid
+        # flowfield = [" ".join(map(str, row)) for row in self.cost_field]
+        # self.FlowField.putStringArray("CostField",flowfield)
         for row in self.cost_field:
             print(" ".join(f"{cell:2}" for cell in row))
 
-    def set_goalorientation(self, goalorienation):
-        self.goal_z = goalorienation
-
-    def align_to_target(self, currentorientation):
+    def aligned_to_target(self, currentorientation):
         aligned = False
         turn = self.goal_z - currentorientation     
         if turn == 0:
+            z = 0
             aligned = True
-        self.controller.setRightJoyX(turn)
+        elif turn < -5: 
+            z = -1
+        elif turn > 5:
+            z = 1
+ 
+        self.controller.setRightJoyX(z)
         return aligned
 
     # Calculate the best direction in degrees
-    def get_directions(self, current_x_float, current_y_float):
+    def get_directions(self, current_position, current_alignment):
+        current_x_float, current_y_float = current_position
+
         # Adjusting for the zero based table and rounding to an integer
         current_x = round(current_x_float)
         current_y = round(current_y_float)        
 
         ontarget = False
 
+        aligned = self.aligned_to_target(current_alignment)
+
         if current_x == self.goal_x and current_y == self.goal_y:
             ontarget = True
-
+        
 
         # A set of directions for neighboring cells
         directions = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)]
@@ -126,11 +138,16 @@ class FlowField:
         if ontarget:
             self.controller.setLeftJoyY(0)
             self.controller.setLeftJoyX(0)        
+        elif 0 > current_x or current_x > self.width or 0 > current_y or current_y > self.height:
+            self.controller.setLeftJoyY(-current_x / current_x)
+            self.controller.setLeftJoyX(-current_y / current_y)
         else:
             self.controller.setLeftJoyY(forward)
             self.controller.setLeftJoyX(strafe)
         
-        return ontarget
+        self.controller.publish()
+
+        return (ontarget and aligned)
 
 
 # A class for emulating an Xbox controller over NetworkTables
@@ -452,37 +469,66 @@ class AprilTagAligner:
         z = round(z, 2) 
         controller.setRightJoyX(z)
         
-        # Target is considered locked if this distance is within 5% of center
-        if ((abs(x) < 0.05) and (abs(y) < 0.05) and (abs(z) < 0.05)):                                          
+        # Target is considered locked if this distance is within 15% of center
+        if ((abs(x) < 0.15) and (abs(y) < 0.15) and (abs(z) < 0.15)):                                          
             targetlocked = True
         
+        controller.publish()
+
         return targetlocked
 
 
 # A class for defining the stages of the game and the objectives in that stage
 class GameManager:
     def __init__(self):
+        ntinst = ntcore.NetworkTableInstance.getDefault()        
+        self.GameTable = ntinst.getTable('GameManager') 
         self.objectivechanged = True
         self.stage = 0
+        self.wait_start_time = None
         self.objectives = [
-            {"action": "navigate", "target": (5, 5), "orientation": 0},   # Stage 0
+            {"action": "navigate", "target": (6, 3), "orientation": 0},   # Stage 0
             {"action": "align", "tag_id": 1},           # Stage 1
             {"action": "wait", "duration": 3},         # Stage 2
-            {"action": "navigate", "target": (10, 10), "orientation":180},# Stage 3
+            {"action": "navigate", "target": (10, 9), "orientation":180},# Stage 3
             {"action": "align", "tag_id": 2},          # Stage 4
             {"action": "wait", "duration": 3},         # Stage 5
             {"action": "navigate", "target": (1, 1), "orientation":0},  # Stage 6
         ]
+        self.print_current_objective()
 
     def get_current_objective(self):
         if self.stage < len(self.objectives):
             return self.objectives[self.stage]
         return None  # Game is complete
 
+    def print_current_objective(self):
+        if self.stage < len(self.objectives):
+            self.GameTable.putNumber('Stage', self.stage)
+            objective = self.objectives[self.stage]
+            action = objective["action"]
+            self.GameTable.putString("Action",action)     
+            try:
+                targetx, targety = objective["target"]
+                targetorientation = objective["orientation"]
+                self.GameTable.putString("Target",f"({targetx},{targety})")
+                self.GameTable.putString("Orientation",f"{targetorientation} degrees")
+            except:
+                self.GameTable.putString("Target",f"None")
+            try:
+                targettag = objective["tag_id"]
+                self.GameTable.putString("Target Apriltag", f"{targettag}")
+            except:
+                self.GameTable.putString("Target Apriltag", f"None")
+            print(f"Objective: {self.objectives[self.stage]}")
+
     def advance_stage(self):        
         self.stage += 1
         self.objectivechanged = True
+        self.wait_start_time = None 
         print(f"Advancing to stage {self.stage}")
+        self.print_current_objective()
+        
         
     def objective_has_changed(self):
         changed = self.objectivechanged
@@ -498,8 +544,7 @@ def main():
     game_manager = GameManager()    
     odometry_manager = OdometryManager.get_instance()
     navigator = FlowField()
-    april_tag_aligner = AprilTagAligner()
-    controller = NetworkController()
+    april_tag_aligner = AprilTagAligner()    
 
     print("Entering game logic")
     # Enter main loop to run game logic
@@ -516,24 +561,16 @@ def main():
 
         # Get our current position from the odometry manager
         odometry_manager.update_position()
-        current_position = odometry_manager.get_position()
-        current_positionx, current_positiony = odometry_manager.get_position()
-        current_alignment = odometry_manager.get_orientation()
 
         # If navigating
         if objective["action"] == "navigate":
             # On first round, set up navigator
             if game_manager.objective_has_changed():
-                targetorientation = objective["orientation"]
-                targetx, targety = objective["target"]
-                navigator.set_goalorientation(targetorientation)
-                navigator.generate_flowfield(targetx, targety)
-
+                navigator.generate_flowfield(objective["target"], objective["orientation"])
+                
             # Navigate to target and align to target alignment
-            ontarget = navigator.get_directions(current_positionx, current_positiony)
-            aligned = navigator.align_to_target(current_alignment)
-    
-            if ontarget and aligned: 
+            ontarget = navigator.get_directions(odometry_manager.get_position(), odometry_manager.get_orientation())
+            if ontarget: 
                 game_manager.advance_stage()
 
         # If aligning to an April Tag
@@ -544,13 +581,13 @@ def main():
 
         # If waiting
         elif objective["action"] == "wait":            
-            time.sleep(objective["duration"])
-            game_manager.advance_stage()
+            if game_manager.objective_has_changed():
+                game_manager.wait_start_time = time.time()
+            elapsed_time = time.time() - game_manager.wait_start_time
+            print(f"{elapsed_time}")
+            if elapsed_time >= objective["duration"]:            
+                game_manager.advance_stage()
         
-        
-        
-        # Push controller values to the network controller
-        controller.publish()
         
         # Sleep 
         time.sleep(0.1)
