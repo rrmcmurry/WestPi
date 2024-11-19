@@ -48,7 +48,7 @@ def control_robot_with_keyboard(robot_table):
 def control_robot_with_pi(network_controller, robot_table):
     x, y, z = 0.0, 0.0, 0.0  # Initial position: x, y, z
     step = 0.1  # Step size for position change
-    rotation_step = 0.5  # Step size for orientation change
+    rotation_step = 5  # Step size for orientation change
 
      
 

@@ -7,7 +7,19 @@ import numpy
 import math
 
 # Constants
-networktablesserver = '10.96.68.2'
+networktablesserver = True
+networktablesserverip = '10.96.68.2'
+gameobjectives = [
+    {"action": "navigate", "target": (7, 10), "orientation": 90},   # Stage 0
+    {"action": "align", "tag_id": 1},                               # Stage 1
+    {"action": "wait", "duration": 3},                              # Stage 2
+    {"action": "navigate", "target": (1, 5), "orientation":180},    # Stage 3
+    {"action": "align", "tag_id": 2},                               # Stage 4
+    {"action": "wait", "duration": 3},                              # Stage 5
+    {"action": "navigate", "target": (5, 5), "orientation":0},      # Stage 6
+    {"action": "wait", "duration": 5},                              # Stage 7
+    {"action": "navigate", "target": (1, 1), "orientation":0},      # Stage 8
+]
 
 
     
@@ -58,7 +70,8 @@ class FlowField:
 
     def aligned_to_target(self, currentorientation):
         aligned = False
-        turn = self.goal_z - currentorientation     
+        turn = self.goal_z - currentorientation  
+        z = 0
         if turn == 0:
             z = 0
             aligned = True
@@ -66,6 +79,8 @@ class FlowField:
             z = -1
         elif turn > 5:
             z = 1
+        else:
+            z = turn / 5
  
         self.controller.setRightJoyX(z)
         return aligned
@@ -102,8 +117,8 @@ class FlowField:
                 # Grab the cost of this field
                 cost = self.cost_field[neighbor_y][neighbor_x]
                 # Skip it if the cost is 99
-                if cost == 99:
-                    continue
+                #if cost == 99:
+                #    continue
 
                 # Weight is the inverse of cost, lower cost = stronger pull
                 weight = 1 / cost if cost != 0 else 1  
@@ -295,8 +310,7 @@ class OdometryManager:
         OdometryManager._instance = self
 
         # Initialize NetworkTables and the Pose table
-        ntinst = ntcore.NetworkTableInstance.getDefault() 
-        ntinst.startServer()
+        ntinst = ntcore.NetworkTableInstance.getDefault()
         self.pose_table = ntinst.getTable("Pose")
 
         # Default position and orientation
@@ -480,20 +494,16 @@ class AprilTagAligner:
 # A class for defining the stages of the game and the objectives in that stage
 class GameManager:
     def __init__(self):
-        ntinst = ntcore.NetworkTableInstance.getDefault()        
+        ntinst = ntcore.NetworkTableInstance.getDefault() 
+        if networktablesserver:
+            ntinst.startServer()
+        else:
+            ntinst.startClient4(networktablesserverip)
         self.GameTable = ntinst.getTable('GameManager') 
         self.objectivechanged = True
         self.stage = 0
         self.wait_start_time = None
-        self.objectives = [
-            {"action": "navigate", "target": (6, 3), "orientation": 0},   # Stage 0
-            {"action": "align", "tag_id": 1},           # Stage 1
-            {"action": "wait", "duration": 3},         # Stage 2
-            {"action": "navigate", "target": (10, 9), "orientation":180},# Stage 3
-            {"action": "align", "tag_id": 2},          # Stage 4
-            {"action": "wait", "duration": 3},         # Stage 5
-            {"action": "navigate", "target": (1, 1), "orientation":0},  # Stage 6
-        ]
+        self.objectives = gameobjectives
         self.print_current_objective()
 
     def get_current_objective(self):
@@ -511,7 +521,7 @@ class GameManager:
                 targetx, targety = objective["target"]
                 targetorientation = objective["orientation"]
                 self.GameTable.putString("Target",f"({targetx},{targety})")
-                self.GameTable.putString("Orientation",f"{targetorientation} degrees")
+                self.GameTable.putString("Target Orientation",f"{targetorientation} degrees")
             except:
                 self.GameTable.putString("Target",f"None")
             try:
