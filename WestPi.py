@@ -28,27 +28,25 @@ gameobjectives = [
 class FlowField:
     def __init__(self):
         self.controller = NetworkController()
-        # Initialize NetworkTables 
-        # ntinst = ntcore.NetworkTableInstance.getDefault()        
-        # self.FlowField = ntinst.getTable('FlowField') 
-        pass
+
 
     def spread_costs_from_goal(self, goal_x, goal_y):
         for distance in range(1, max(self.width, self.height)):
             for y in range(self.height):
                 for x in range(self.width):
                     if self.cost_field[y][x] == distance - 1:
-                        for dy, dx in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+                        for dy, dx in [(-1, 0), (-1,-1), (0,-1), (1,-1), (1, 0), (1, 1), (0, 1), (-1,1)]:
                             ny, nx = y + dy, x + dx
                             if 0 <= ny < self.height and 0 <= nx < self.width:
                                 if self.cost_field[ny][nx] > distance:
                                     self.cost_field[ny][nx] = distance
 
+
     def generate_flowfield(self, goal, orientation):
         self.goal_x, self.goal_y = goal
         self.goal_z = orientation
         self.width = 21
-        self.height = 11
+        self.height = 12
         self.cost_field = [[99 for _ in range(self.width)] for _ in range(self.height)]
         self.cost_field[self.goal_y][self.goal_x] = 0
         self.spread_costs_from_goal(self.goal_x, self.goal_y)
@@ -63,10 +61,11 @@ class FlowField:
 
     def print_flowfield(self):
         # Format and print the cost field as a grid
-        # flowfield = [" ".join(map(str, row)) for row in self.cost_field]
-        # self.FlowField.putStringArray("CostField",flowfield)
+        formatted_rows = []
         for row in self.cost_field:
-            print(" ".join(f"{cell:2}" for cell in row))
+            formatted_row = " ".join(f"{cell:2}" for cell in row).strip()
+            formatted_rows.append(formatted_row)
+            print(formatted_row)
 
     def aligned_to_target(self, currentorientation):
         aligned = False
@@ -126,12 +125,11 @@ class FlowField:
                 # Convert direction into an angle in radians
                 angle = math.atan2(dy, dx)  
 
-                # x value = math.cos(angle) 
-                # y value = math.sin(angle)
-                # Weighted x value = math.cos(angle) * weight
-                # Weighted y value = math.sin(angle) * weight
-                #                
                 # Store the weighted vector (angle and weight)
+                """ x value = math.cos(angle) """
+                """ y value = math.sin(angle) """
+                """ Weighted x value = math.cos(angle) * weight """
+                """ Weighted y value = math.sin(angle) * weight """
                 weights.append((math.cos(angle) * weight, math.sin(angle) * weight))
 
         # Add up the weighted vectors
@@ -612,7 +610,8 @@ def main():
         
         
         # Sleep 
-        time.sleep(0.1)
+        """ only needed if pushing values to networktables on the roborio to prevent flooding """
+        # time.sleep(0.1)
 
 
 if __name__ == "__main__":
