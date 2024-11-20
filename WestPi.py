@@ -9,8 +9,9 @@ import math
 # Constants
 networktablesserver = False
 networktablesserverip = "10.96.68.2"
+"""
 gameobjectives = [
-    {"action": "navigate", "target": (7, 10), "orientation": 90},   # Stage 0
+    {"action": "navigate", "target": (1, 1), "orientation": 0},   # Stage 0
     {"action": "align", "tag_id": 1},                               # Stage 1
     {"action": "wait", "duration": 3},                              # Stage 2
     {"action": "navigate", "target": (1, 5), "orientation":180},    # Stage 3
@@ -20,8 +21,13 @@ gameobjectives = [
     {"action": "wait", "duration": 5},                              # Stage 7
     {"action": "navigate", "target": (1, 1), "orientation":0},      # Stage 8
 ]
-
-
+"""
+gameobjectives = [
+    {"action": "navigate", "target": (1, 1), "orientation": 0},   # Stage 0
+    {"action": "align", "tag_id": 1},                               # Stage 1
+    {"action": "wait", "duration": 3},                              # Stage 2
+    {"action": "navigate", "target": (0,0), "orientation": 0}
+]
     
 
 # A class for defining a field with obstacles that can give directions
@@ -71,15 +77,12 @@ class FlowField:
         aligned = False
         turn = self.goal_z - currentorientation  
         z = 0
-        if turn == 0:
-            z = 0
-            aligned = True
-        elif turn < -5: 
+        if turn < -5: 
             z = -1
         elif turn > 5:
             z = 1
         else:
-            z = turn / 5
+            aligned = True
  
         self.controller.setRightJoyX(z)
         return aligned
@@ -457,11 +460,7 @@ class AprilTagAligner:
         RightSideLength = abs(UpperRightPoint.y - LowerRightPoint.y)
         CloserSideLength = max(LeftSideLength, RightSideLength)
 
-        # STRAFE: If the Left side is larger than the right side, we want to strafe right 
-        """ expected values are between -0.5 and +0.5 """
-        strafe = (LeftSideLength - RightSideLength) / CloserSideLength
-        """ expected values are between -.75 and 0.75 """
-        strafe = strafe * 1.5 
+        
         
         
         # FORWARD: If close side length out of camera's height is greater than 80%, the value goes negative. Otherwise it is positive.         
@@ -471,15 +470,21 @@ class AprilTagAligner:
         """ expected values are now -0.25 to +1.0 """
         forward = forward * 1.25 
 
+        # STRAFE: If the Left side is larger than the right side, we want to strafe right 
+        """ expected values are between -0.5 and +0.5 """
+        strafe = (LeftSideLength - RightSideLength) / CloserSideLength
+        """ expected values are between -.75 and 0.75 """
+        strafe = -strafe * 1.5 * abs(forward)
+
         # ROTATE: Calculate distance between center of apriltag and center of camera 
         """ Expected range: -1.0 through 1.0 """
         rotate = (centerPoint.x - (self.camera_width / 2)) / (self.camera_width / 2) 
         """ Dampening rotation based on our current strafe value to prevent overturning """
-        rotate *= (1 - abs(strafe)) 
+        # rotate *= (1 - abs(strafe)) 
         
         
         # Target is considered locked if robot oriented strafe, forward, and rotate values are all lower than 0.10
-        if ((abs(strafe) < 0.10) and (abs(forward) < 0.10) and (abs(rotate) < 0.10)):                                          
+        if ((abs(strafe) < 0.20) and (abs(forward) < 0.20) and (abs(rotate) < 0.20)):                                          
             targetlocked = True
 
 
@@ -521,6 +526,10 @@ class GameManager:
         if self.stage < len(self.objectives):
             return self.objectives[self.stage]
         return None  # Game is complete
+    
+    def restart(self):
+        self.stage = 0
+        return
 
     def print_current_objective(self):
         if self.stage < len(self.objectives):
@@ -577,6 +586,7 @@ def main():
         objective = game_manager.get_current_objective()
         if not objective:
             print("Game complete!")
+            game_manager.restart()
             continue
 
         # Get our current position from the odometry manager
