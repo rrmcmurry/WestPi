@@ -7,8 +7,8 @@ import numpy
 import math
 
 # Constants
-networktablesserver = True
-networktablesserverip = '10.96.68.2'
+networktablesserver = False
+networktablesserverip = "10.96.68.2"
 gameobjectives = [
     {"action": "navigate", "target": (7, 10), "orientation": 90},   # Stage 0
     {"action": "align", "tag_id": 1},                               # Stage 1
@@ -505,17 +505,17 @@ class AprilTagAligner:
 # A class for defining the stages of the game and the objectives in that stage
 class GameManager:
     def __init__(self):
-        ntinst = ntcore.NetworkTableInstance.getDefault() 
-        if networktablesserver:
-            ntinst.startServer()
-        else:
-            ntinst.startClient4(networktablesserverip)
-        self.GameTable = ntinst.getTable('GameManager') 
+        self.ntinst = ntcore.NetworkTableInstance.getDefault()         
+        self.ntinst.startClient4("10.96.68.2")
+        self.ntinst.setServerTeam(9668) 
+
+        self.GameTable = self.ntinst.getTable('GameManager') 
         self.objectivechanged = True
         self.stage = 0
         self.wait_start_time = None
         self.objectives = gameobjectives
         self.print_current_objective()
+        self.GameTable.putNumber('Stage', 0.0)
 
     def get_current_objective(self):
         if self.stage < len(self.objectives):
@@ -611,7 +611,7 @@ def main():
         
         # Sleep 
         """ only needed if pushing values to networktables on the roborio to prevent flooding """
-        # time.sleep(0.1)
+        time.sleep(0.1)
 
 
 if __name__ == "__main__":
