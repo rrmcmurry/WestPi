@@ -170,7 +170,7 @@ class FlowField:
         # If you're outside of the field bring it back in the field
         elif 0 > current_x or current_x > self.width or 0 > current_y or current_y > self.height:
             if 0 > current_x or current_x > self.width:
-                self.controller.setLeftJoyY((-current_x / current_x) * 0.3)
+                self.controller.setLeftJoyY((current_x / current_x) * 0.3)
             if 0 > current_y or current_y > self.height:
                 self.controller.setLeftJoyX((-current_y / current_y) * 0.3)
         # Otherwise use the calculated values
@@ -509,6 +509,7 @@ class AprilTagAligner:
         """ Expected range: -1.0 through 1.0 """
         rotate = (centerPoint.x - (self.camera_width / 2)) / (self.camera_width / 2) 
         """ Dampening rotation based on our current strafe value to prevent overturning """
+        rotate = rotate * 0.3
         # rotate *= (1 - abs(strafe)) 
         
         
@@ -617,7 +618,6 @@ def main():
         if not objective:
             print("Game complete!")
             game_manager.restart()
-            continue
 
         # Get our current position from the odometry manager
         odometry_manager.update_position()
