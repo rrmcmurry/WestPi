@@ -23,10 +23,10 @@ gameobjectives = [
 ]
 """
 gameobjectives = [
-    {"action": "navigate", "target": (1, 1), "orientation": 0},   # Stage 0
-    {"action": "align", "tag_id": 1},                               # Stage 1
-    {"action": "wait", "duration": 3},                              # Stage 2
-    {"action": "navigate", "target": (0,0), "orientation": 0}
+    {"action": "navigate", "target": (1, 1), "orientation": 0},   
+    {"action": "align", "tag_id": 1},                               
+    {"action": "wait", "duration": 3},                              
+    {"action": "navigate", "target": (0,0), "orientation": 0},
 ]
     
 
@@ -160,7 +160,7 @@ class FlowField:
             self.controller.setLeftJoyY(forward)
             self.controller.setLeftJoyX(strafe)
         
-        self.controller.publish()
+        
 
         return (ontarget and aligned)
 
@@ -177,6 +177,9 @@ class NetworkController:
         return cls._instance
 
     def _initialize(self):
+        # Initialize time for periodic 
+        self.last_time = time.time()
+        
         # Initialize NetworkTables 
         ntinst = ntcore.NetworkTableInstance.getDefault()        
         self.ControllerTable = ntinst.getTable('NetworkController') 
@@ -294,6 +297,14 @@ class NetworkController:
         self.ControllerTable.putBoolean('dpadLeft', self.dpad_left)
         self.ControllerTable.putBoolean('dpadRight', self.dpad_right)
 
+    # Periodic runs once every loop but only publishes to NetworkTables once every 10 milliseconds to prevent network flooding
+    """ This should prevent the need to call sleep in the main loop which should improve our video quality """
+    def periodic(self):
+        elapsed_time = time.time() - self.last_time
+        if elapsed_time >= 0.1:            
+            self.publish()
+            self.last_time = time.time()
+        
 
 # A class for tracking current position
 class OdometryManager:
@@ -502,7 +513,7 @@ class AprilTagAligner:
         self.controller.setLeftJoyY(fieldforward)
         self.controller.setLeftJoyX(fieldstrafe)
         self.controller.setRightJoyX(rotate)
-        self.controller.publish()
+        
 
         return targetlocked
 
@@ -573,7 +584,8 @@ def main():
     game_manager = GameManager()    
     odometry_manager = OdometryManager.get_instance()
     navigator = FlowField()
-    april_tag_aligner = AprilTagAligner()    
+    april_tag_aligner = AprilTagAligner()  
+    controller = NetworkController()
 
     print("Entering game logic")
     # Enter main loop to run game logic
@@ -581,6 +593,7 @@ def main():
 
         # Call periodic functions for things that need to update every time
         april_tag_aligner.periodic()
+        controller.periodic()
         
         # Get our current objective from the game manager
         objective = game_manager.get_current_objective()
@@ -613,15 +626,16 @@ def main():
         elif objective["action"] == "wait":            
             if game_manager.objective_has_changed():
                 game_manager.wait_start_time = time.time()
+                controller.setLeftJoyY(0)
+                controller.setLeftJoyX(0)
+                controller.setRightJoyX(0)
             elapsed_time = time.time() - game_manager.wait_start_time
             print(f"{elapsed_time}")
             if elapsed_time >= objective["duration"]:            
                 game_manager.advance_stage()
         
         
-        # Sleep 
-        """ only needed if pushing values to networktables on the roborio to prevent flooding """
-        time.sleep(0.1)
+
 
 
 if __name__ == "__main__":
