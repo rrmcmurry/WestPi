@@ -23,15 +23,15 @@ gameobjectives = [
 ]
 """
 gameobjectives = [
-    {"action": "navigate", "target": (0, 0), "orientation": 90},  
+    {"action": "navigate", "target": (0, 5), "orientation": 90},  
     {"action": "wait", "duration": 3},     
-    {"action": "navigate", "target": (0, 0), "orientation": 0},
+    {"action": "navigate", "target": (0, 5), "orientation": 0},
     {"action": "wait", "duration": 3},     
-    {"action": "navigate", "target": (1, 0), "orientation": 0}, 
+    {"action": "navigate", "target": (1, 5), "orientation": 0}, 
     {"action": "wait", "duration": 3},     
     {"action": "align", "tag_id": 1},                               
     {"action": "wait", "duration": 3},                              
-    {"action": "navigate", "target": (0,0), "orientation": 0},
+    {"action": "navigate", "target": (0,5), "orientation": 0},
 ]
     
 
@@ -542,8 +542,6 @@ class GameManager:
         self.ntinst = ntcore.NetworkTableInstance.getDefault()         
         self.ntinst.startClient4("10.96.68.2")
         self.ntinst.setServerTeam(9668) 
-
-        self.last_time = time.time()
         self.GameTable = self.ntinst.getTable('GameManager') 
         self.objectivechanged = True
         self.stage = 0
@@ -551,13 +549,6 @@ class GameManager:
         self.objectives = gameobjectives
         self.print_current_objective()
         self.GameTable.putNumber('Stage', 0.0)
-
-    def periodic(self):
-        """ Once a second, Update the current stage from NetworkTables. This allows for stage updates from the robot """
-        elapsed_time = time.time() - self.last_time
-        if elapsed_time >= 1.0:            
-            self.stage = self.GameTable.getNumber('Stage',self.stage)
-            self.last_time = time.time()
 
     def get_current_objective(self):
         if self.stage < len(self.objectives):
@@ -620,7 +611,6 @@ def main():
         # Call periodic functions for things that need to update every time
         april_tag_aligner.periodic()
         controller.periodic()
-        game_manager.periodic()
         
         # Get our current objective from the game manager
         objective = game_manager.get_current_objective()
