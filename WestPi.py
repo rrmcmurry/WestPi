@@ -23,7 +23,12 @@ gameobjectives = [
 ]
 """
 gameobjectives = [
-    {"action": "navigate", "target": (1, 1), "orientation": 0},   
+    {"action": "navigate", "target": (0, 0), "orientation": 90},  
+    {"action": "wait", "duration": 3},     
+    {"action": "navigate", "target": (0, 0), "orientation": 0},
+    {"action": "wait", "duration": 3},     
+    {"action": "navigate", "target": (1, 0), "orientation": 0}, 
+    {"action": "wait", "duration": 3},     
     {"action": "align", "tag_id": 1},                               
     {"action": "wait", "duration": 3},                              
     {"action": "navigate", "target": (0,0), "orientation": 0},
@@ -76,17 +81,18 @@ class FlowField:
     def aligned_to_target(self, currentorientation):
         aligned = False
         targetorientation = self.goal_z 
-
+        
+        
         # Force our angle values to be between 0 and 360
-        targetorientation %= targetorientation 
-        currentorientation %= currentorientation
+        targetorientation = targetorientation % 360
+        currentorientation = currentorientation % 360
 
         # Calculate the angular difference
         outofalignment = (targetorientation - currentorientation + 180) % 360 -180
 
         # Check alignment threshhold
         if abs(outofalignment) > 5:             
-            z = (outofalignment / abs(outofalignment)) * 0.3 # Limit our speed to -0.3 or +0.3        
+            z = -(outofalignment / abs(outofalignment)) * 0.3 # Limit our speed to -0.3 or +0.3        
         else:
             z = 0
             aligned = True
@@ -496,7 +502,7 @@ class AprilTagAligner:
 
         # ROTATE: Calculate distance between center of apriltag and center of camera 
         """ Expected range: -1.0 through 1.0 """
-        rotate = -(centerPoint.x - (self.camera_width / 2)) / (self.camera_width / 2) 
+        rotate = (centerPoint.x - (self.camera_width / 2)) / (self.camera_width / 2) 
         """ Dampening rotation based on our current strafe value to prevent overturning """
         # rotate *= (1 - abs(strafe)) 
         
