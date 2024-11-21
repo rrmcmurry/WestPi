@@ -163,12 +163,17 @@ class FlowField:
         strafe = round(strafe * 100)/100
 
         # Set controller values
+        # If you're on target, stop
         if ontarget:
             self.controller.setLeftJoyY(0)
             self.controller.setLeftJoyX(0)        
+        # If you're outside of the field bring it back in the field
         elif 0 > current_x or current_x > self.width or 0 > current_y or current_y > self.height:
-            self.controller.setLeftJoyY(-current_x / current_x)
-            self.controller.setLeftJoyX(-current_y / current_y)
+            if 0 > current_x or current_x > self.width:
+                self.controller.setLeftJoyY((-current_x / current_x) * 0.3)
+            if 0 > current_y or current_y > self.height:
+                self.controller.setLeftJoyX((-current_y / current_y) * 0.3)
+        # Otherwise use the calculated values
         else:
             self.controller.setLeftJoyY(forward)
             self.controller.setLeftJoyX(strafe)
@@ -538,6 +543,7 @@ class GameManager:
         self.ntinst.startClient4("10.96.68.2")
         self.ntinst.setServerTeam(9668) 
 
+        self.last_time = time.time()
         self.GameTable = self.ntinst.getTable('GameManager') 
         self.objectivechanged = True
         self.stage = 0
@@ -545,6 +551,13 @@ class GameManager:
         self.objectives = gameobjectives
         self.print_current_objective()
         self.GameTable.putNumber('Stage', 0.0)
+
+    def periodic(self):
+        """ Once a second, Update the current stage from NetworkTables. This allows for stage updates from the robot """
+        elapsed_time = time.time() - self.last_time
+        if elapsed_time >= 1.0:            
+            self.stage = self.GameTable.getNumber('Stage',self.stage)
+            self.last_time = time.time()
 
     def get_current_objective(self):
         if self.stage < len(self.objectives):
@@ -607,6 +620,7 @@ def main():
         # Call periodic functions for things that need to update every time
         april_tag_aligner.periodic()
         controller.periodic()
+        game_manager.periodic()
         
         # Get our current objective from the game manager
         objective = game_manager.get_current_objective()
