@@ -75,13 +75,20 @@ class FlowField:
 
     def aligned_to_target(self, currentorientation):
         aligned = False
-        turn = self.goal_z - currentorientation  
-        z = 0
-        if turn < -5: 
-            z = 1
-        elif turn > 5:
-            z = -1
+        targetorientation = self.goal_z 
+
+        # Force our angle values to be between 0 and 360
+        targetorientation %= targetorientation 
+        currentorientation %= currentorientation
+
+        # Calculate the angular difference
+        outofalignment = (targetorientation - currentorientation + 180) % 360 -180
+
+        # Check alignment threshhold
+        if abs(outofalignment) > 5:             
+            z = (outofalignment / abs(outofalignment)) * 0.3 # Limit our speed to -0.3 or +0.3        
         else:
+            z = 0
             aligned = True
  
         self.controller.setRightJoyX(z)
