@@ -78,9 +78,9 @@ class FlowField:
         turn = self.goal_z - currentorientation  
         z = 0
         if turn < -5: 
-            z = -1
-        elif turn > 5:
             z = 1
+        elif turn > 5:
+            z = -1
         else:
             aligned = True
  
@@ -478,7 +478,7 @@ class AprilTagAligner:
 
         # ROTATE: Calculate distance between center of apriltag and center of camera 
         """ Expected range: -1.0 through 1.0 """
-        rotate = (centerPoint.x - (self.camera_width / 2)) / (self.camera_width / 2) 
+        rotate = -(centerPoint.x - (self.camera_width / 2)) / (self.camera_width / 2) 
         """ Dampening rotation based on our current strafe value to prevent overturning """
         # rotate *= (1 - abs(strafe)) 
         
