@@ -28,7 +28,7 @@ class FlowFieldNavigator:
         self.cost_field[self.goal_y][self.goal_x] = 0
         self.spread_costs_from_goal(self.goal_x, self.goal_y)
         # self.add_obstacle(10,5,2,2) # a 2x2 block right in the middle 
-        self.print_flowfield()
+        # self.print_flowfield()
         
      
     def add_obstacle(self, start_x, start_y, obstacle_width, obstacle_height):
@@ -130,9 +130,11 @@ class FlowFieldNavigator:
 
         # Set controller values
         # If you're on target, stop
-        if ontarget:
+        if ontarget and aligned:
+            self.controller.stop()
+        elif ontarget:
             self.controller.setLeftJoyY(0)
-            self.controller.setLeftJoyX(0)        
+            self.controller.setLeftJoyX(0)
         # If you're outside of the field bring it back in the field
         elif 0 > current_x or current_x > self.width or 0 > current_y or current_y > self.height:
             if 0 > current_x or current_x > self.width:

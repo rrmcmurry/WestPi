@@ -141,6 +141,7 @@ class AprilTagAligner:
         # Target is considered locked if robot oriented strafe, forward, and rotate values are all lower than 0.10
         if ((abs(strafe) < 0.20) and (abs(forward) < 0.20) and (abs(rotate) < 0.20)):                                          
             targetlocked = True
+            
 
 
         # At this point forward and strafe are robot oriented. Translating to field oriented.
@@ -153,10 +154,13 @@ class AprilTagAligner:
         fieldstrafe = -round(fieldstrafe * 0.5, 2)
         rotate = round(rotate, 2) 
 
-        # Publishing values to the network controller
-        self.controller.setLeftJoyY(fieldforward)
-        self.controller.setLeftJoyX(fieldstrafe)
-        self.controller.setRightJoyX(rotate)
+        if targetlocked:
+            self.controller.stop()
+        else:
+            # Publishing values to the network controller
+            self.controller.setLeftJoyY(fieldforward)
+            self.controller.setLeftJoyX(fieldstrafe)
+            self.controller.setRightJoyX(rotate)
         
 
         return targetlocked

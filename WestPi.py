@@ -78,11 +78,11 @@ def main():
         elif objective["action"] == "wait":            
             if game_manager.objective_has_changed():
                 game_manager.wait_start_time = time.time()
-                controller.setLeftJoyY(0)
-                controller.setLeftJoyX(0)
-                controller.setRightJoyX(0)
+                controller.reset   
+                waittime = objective["duration"]
+                print(f"Waiting { waittime } seconds...")
             elapsed_time = time.time() - game_manager.wait_start_time
-            print(f"{elapsed_time}")
+            
             if elapsed_time >= objective["duration"]:            
                 game_manager.advance_stage()
         

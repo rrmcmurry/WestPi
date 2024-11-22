@@ -46,6 +46,42 @@ class NetworkController:
         self.dpad_left = False
         self.dpad_right = False
 
+    def reset(self):
+        # Sets all xbox controller values back to defaults
+        # Axes 
+        self.left_joy_x = 0.0
+        self.left_joy_y = 0.0
+        self.right_joy_x = 0.0
+        self.right_joy_y = 0.0
+        self.left_trigger = 0.0
+        self.right_trigger = 0.0
+        
+        # Buttons 
+        self.a_button = False
+        self.b_button = False
+        self.x_button = False
+        self.y_button = False
+        self.left_bumper = False
+        self.right_bumper = False
+        self.back_button = False
+        self.start_button = False
+        self.left_stick_button = False
+        self.right_stick_button = False
+        self.dpad_up = False
+        self.dpad_down = False
+        self.dpad_left = False
+        self.dpad_right = False
+
+    def stop(self):
+        # Sets joystick values back to zero
+        # Axes 
+        self.left_joy_x = 0.0
+        self.left_joy_y = 0.0
+        self.right_joy_x = 0.0
+        self.right_joy_y = 0.0
+        self.left_trigger = 0.0
+        self.right_trigger = 0.0
+
     # Setter methods for each axis
     def setLeftJoyX(self, value):
         self.left_joy_x = value
