@@ -138,9 +138,9 @@ class FlowFieldNavigator:
         # If you're outside of the field bring it back in the field
         elif 0 > current_x or current_x > self.width or 0 > current_y or current_y > self.height:
             if 0 > current_x or current_x > self.width:
-                self.controller.setLeftJoyY((current_x / current_x) * 0.3)
+                self.controller.setLeftJoyY((-current_x / current_x) * 0.3)
             if 0 > current_y or current_y > self.height:
-                self.controller.setLeftJoyX((-current_y / current_y) * 0.3)
+                self.controller.setLeftJoyX((current_y / current_y) * 0.3)
         # Otherwise use the calculated values
         else:
             self.controller.setLeftJoyY(forward)
