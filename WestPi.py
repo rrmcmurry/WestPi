@@ -6,6 +6,7 @@ import time
 from NetworkController import NetworkController
 from OdometryManager import OdometryManager
 from FlowFieldNavigator import FlowFieldNavigator
+from DirectNavigator import DirectNavigator
 from AprilTagAligner import AprilTagAligner
 from GameManager import GameManager
 
@@ -37,6 +38,7 @@ def main():
     game_manager = GameManager(gameobjectives)    
     odometry_manager = OdometryManager.get_instance()
     navigator = FlowFieldNavigator()
+    directnavigator = DirectNavigator()
     april_tag_aligner = AprilTagAligner()  
     controller = NetworkController()
 
@@ -61,10 +63,12 @@ def main():
         if objective["action"] == "navigate":
             # On first round, set up navigator
             if game_manager.objective_has_changed():
-                navigator.generate_flowfield(objective["target"], objective["orientation"])
+                directnavigator.navigate_to(objective["target"], objective["orientation"])
+                # navigator.generate_flowfield(objective["target"], objective["orientation"])
                 
             # Navigate to target and align to target alignment
-            ontarget = navigator.get_directions(odometry_manager.get_position(), odometry_manager.get_orientation())
+            ontarget = directnavigator.navigate_from(odometry_manager.get_position(), odometry_manager.get_orientation())
+            # ontarget = navigator.get_directions(odometry_manager.get_position(), odometry_manager.get_orientation())
             if ontarget:                 
                 game_manager.advance_stage()
 

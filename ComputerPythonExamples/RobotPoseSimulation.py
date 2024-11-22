@@ -13,42 +13,29 @@ def initialize_networktables(server_ip='wpilibpi.local'):
 def control_robot_with_pi(network_controller, pose, game_manager):
 
     step = 0.5  # Step size for position change
-    rotation_step = 5  # Step size for orientation change
+    rotation_step = 1  # Step size for orientation change
 
     leftJoyX = network_controller.getNumber("leftJoyX", 0.0)
     leftJoyY = network_controller.getNumber("leftJoyY", 0.0)
     rightJoyX = network_controller.getNumber("rightJoyX", 0.0)
     action = game_manager.getString("Action","none")
-
     x = pose.getNumber("X",0)
     y = pose.getNumber("Y",0)
     z = pose.getNumber("Z",0)
-    
-
 
     if action != "navigate":
         return
 
-    # Detect key presses and update values
-    if leftJoyY > 0:
-        x += step
-    if leftJoyY < 0:
-        x -= step
-    if leftJoyX > 0:
-        y += step
-    if leftJoyX < 0:
-        y -= step
-    if rightJoyX > 0:
-        z -= rotation_step
-    if rightJoyX < 0:
-        z += rotation_step
-
+    x += leftJoyY * step
+    y += leftJoyX * step
+    z += -rightJoyX * rotation_step
+    
     # Wrap angle to 0-360 degrees
     z %= 360          
 
     # Update the NetworkTables with the robot's position
-    pose.putNumber("X", x)
-    pose.putNumber("Y", y)
+    pose.putNumber("X", round(x,2))
+    pose.putNumber("Y", round(y,2))
     pose.putNumber("Z", z)
 
 
@@ -68,7 +55,7 @@ def main():
                 print("Connected")
             else:
                 print("Connection lost. Reconnecting.")
-                time.sleep(5)
+                time.sleep(3)
                 networkcontroller, pose, gamemanager = initialize_networktables()
     
         control_robot_with_pi(networkcontroller, pose, gamemanager)

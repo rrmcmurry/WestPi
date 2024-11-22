@@ -149,8 +149,7 @@ class FlowFieldNavigator:
         else:
             self.controller.setLeftJoyY(forward)
             self.controller.setLeftJoyX(strafe)
-        
-        
+            
 
         return (ontarget and aligned)
 
