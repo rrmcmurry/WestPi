@@ -36,9 +36,9 @@ def control_robot_with_pi(network_controller, robot_table, game_manager):
             if leftJoyX < 0:
                 y -= step
             if rightJoyX > 0:
-                z += rotation_step
-            if rightJoyX < 0:
                 z -= rotation_step
+            if rightJoyX < 0:
+                z += rotation_step
 
             # Wrap angle to 0-360 degrees
             z %= 360
