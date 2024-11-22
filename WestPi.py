@@ -9,29 +9,15 @@ import math
 # Constants
 networktablesserver = False
 networktablesserverip = "10.96.68.2"
-"""
+
 gameobjectives = [
-    {"action": "navigate", "target": (1, 1), "orientation": 0},   # Stage 0
-    {"action": "align", "tag_id": 1},                               # Stage 1
-    {"action": "wait", "duration": 3},                              # Stage 2
-    {"action": "navigate", "target": (1, 5), "orientation":180},    # Stage 3
-    {"action": "align", "tag_id": 2},                               # Stage 4
-    {"action": "wait", "duration": 3},                              # Stage 5
-    {"action": "navigate", "target": (5, 5), "orientation":0},      # Stage 6
-    {"action": "wait", "duration": 5},                              # Stage 7
-    {"action": "navigate", "target": (1, 1), "orientation":0},      # Stage 8
-]
-"""
-gameobjectives = [
-    {"action": "navigate", "target": (0, 5), "orientation": 90},  
+    {"action": "navigate", "target": (11, 7), "orientation": 270}, 
+    {"action": "align", "tag_id": 1},  
+    {"action": "navigate", "target": (8, 5), "orientation": 90},
+    {"action": "align", "tag_id": 2},
     {"action": "wait", "duration": 3},     
-    {"action": "navigate", "target": (0, 5), "orientation": 0},
-    {"action": "wait", "duration": 3},     
-    {"action": "navigate", "target": (1, 5), "orientation": 0}, 
-    {"action": "wait", "duration": 3},     
-    {"action": "align", "tag_id": 1},                               
-    {"action": "wait", "duration": 3},                              
-    {"action": "navigate", "target": (0,5), "orientation": 0},
+    {"action": "navigate", "target": (0, 5), "orientation": 0}, 
+    {"action": "wait", "duration": 3}
 ]
     
 
@@ -61,7 +47,7 @@ class FlowField:
         self.cost_field = [[99 for _ in range(self.width)] for _ in range(self.height)]
         self.cost_field[self.goal_y][self.goal_x] = 0
         self.spread_costs_from_goal(self.goal_x, self.goal_y)
-        self.add_obstacle(10,5,2,2) # a 2x2 block right in the middle 
+        # self.add_obstacle(10,5,2,2) # a 2x2 block right in the middle 
         self.print_flowfield()
         
      
@@ -503,13 +489,13 @@ class AprilTagAligner:
         """ expected values are between -0.5 and +0.5 """
         strafe = (LeftSideLength - RightSideLength) / CloserSideLength
         """ expected values are between -.75 and 0.75 """
-        strafe = -strafe * 1.5 * abs(forward)
+        strafe = -strafe * 1.5 
 
         # ROTATE: Calculate distance between center of apriltag and center of camera 
         """ Expected range: -1.0 through 1.0 """
-        rotate = (centerPoint.x - (self.camera_width / 2)) / (self.camera_width / 2) 
+        rotate = -(centerPoint.x - (self.camera_width / 2)) / (self.camera_width / 2) 
         """ Dampening rotation based on our current strafe value to prevent overturning """
-        rotate = rotate * 0.3
+        rotate = -rotate * 0.3
         # rotate *= (1 - abs(strafe)) 
         
         
@@ -524,8 +510,8 @@ class AprilTagAligner:
         fieldstrafe = forward * math.sin(currentorientation) + strafe * math.cos(currentorientation)
 
         # Rounding everything to 2 decimals
-        fieldforward = round(fieldforward, 2)
-        fieldstrafe = round(fieldstrafe, 2)
+        fieldforward = round(fieldforward * 0.5, 2)
+        fieldstrafe = -round(fieldstrafe * 0.5, 2)
         rotate = round(rotate, 2) 
 
         # Publishing values to the network controller
@@ -582,6 +568,8 @@ class GameManager:
 
     def advance_stage(self):        
         self.stage += 1
+        if self.stage >= len(self.objectives):
+            self.stage = 0
         self.objectivechanged = True
         self.wait_start_time = None 
         print(f"Advancing to stage {self.stage}")
@@ -612,6 +600,8 @@ def main():
         # Call periodic functions for things that need to update every time
         april_tag_aligner.periodic()
         controller.periodic()
+        # Get our current position from the odometry manager
+        odometry_manager.update_position()
         
         # Get our current objective from the game manager
         objective = game_manager.get_current_objective()
@@ -619,8 +609,7 @@ def main():
             print("Game complete!")
             game_manager.restart()
 
-        # Get our current position from the odometry manager
-        odometry_manager.update_position()
+        
 
         # If navigating
         if objective["action"] == "navigate":
