@@ -54,14 +54,15 @@ def main():
             if isconnected:
                 print("Connected")
             else:
-                print("Connection lost. Reconnecting.")
-                time.sleep(3)
+                print("Connection lost.")
+                time.sleep(10)
+                print("Reconnecting...")
                 networkcontroller, pose, gamemanager = initialize_networktables()
                 continue
     
         control_robot_with_pi(networkcontroller, pose, gamemanager)
         
-        time.sleep(0.5)  # Update every 100ms
+        time.sleep(0.1)  # Update every 100ms
     
 if __name__ == "__main__":
     main()

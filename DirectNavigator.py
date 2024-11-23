@@ -7,9 +7,9 @@ from PIDController import AnglePIDController
 class DirectNavigator:
     def __init__(self):
         self.controller = NetworkController()
-        self.pidalignment = AnglePIDController(0.8,0,0)
-        self.pidforward = PIDController(1,0,0)
-        self.pidstrafe = PIDController(1,0,0)
+        self.pidalignment = AnglePIDController(0.1,0,0)
+        self.pidforward = PIDController(0.3,0.01,0.6)
+        self.pidstrafe = PIDController(0.3,0.01,0.6)
         self.targetx = 0
         self.targety = 0
         self.targetz = 0
