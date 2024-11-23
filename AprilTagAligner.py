@@ -13,12 +13,10 @@ from CameraManager import CameraManager
 # A class for aligning to AprilTags
 class AprilTagAligner:
     def __init__(self):        
-        # Initialize the camera
-        self.camera_width = 960
-        self.camera_height = 640
-        
-        # Initialize Odometry, controller, and PID
+        # Initialize 
         self.camera = CameraManager.get_instance()
+        self.camera_width = self.camera.camera_width
+        self.camera_height = self.camera.camera_height
         self.OdometryMannager = OdometryManager.get_instance()
         self.controller = NetworkController()
         self.pidalignment = AnglePIDController(0.015,0,0)
@@ -26,7 +24,7 @@ class AprilTagAligner:
         self.pidstrafe = PIDController(0.2,0,0.6)
         
     
-        
+    # Align to a specified AprilTag        
     def align_to_tag(self, tag_id):
         # Logic to align to the specified AprilTag 
         aligned = False
@@ -43,8 +41,7 @@ class AprilTagAligner:
 
     # Boolean function returns whether target was located
     def target_located(self, targettagid):
-        targetlocated = False
-       
+        targetlocated = False       
         self.tags = self.camera.detect_april_tags()
         for tag in self.tags:
             tag_id = tag.getId()
