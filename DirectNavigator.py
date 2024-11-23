@@ -1,63 +1,45 @@
 
 from NetworkController import NetworkController
 from PIDController import PIDController
+from PIDController import AnglePIDController
 
 # A class for defining a field with obstacles that can give directions
 class DirectNavigator:
     def __init__(self):
         self.controller = NetworkController()
-        self.pidalignment = PIDController(2,0,0.1)
+        self.pidalignment = AnglePIDController(0.8,0,0)
+        self.pidforward = PIDController(1,0,0)
+        self.pidstrafe = PIDController(1,0,0)
+        self.targetx = 0
+        self.targety = 0
+        self.targetz = 0
 
     def navigate_to(self, targetposition, targetalignment):
         self.targetx, self.targety = targetposition
         self.targetz = targetalignment
 
-    def aligned_to_target(self, currentorientation):
-        aligned = False
-        targetorientation = self.targetz
-        
-        
-        # Force our angle values to be between 0 and 360
-        targetorientation = targetorientation % 360
-        currentorientation = currentorientation % 360
-
-        # Calculate the angular difference
-        outofalignment = (targetorientation - currentorientation + 180) % 360 -180
-
-        # Check alignment threshhold
-        if abs(outofalignment) > 0.5:             
-            z = -(outofalignment / abs(outofalignment)) # Limit our speed to -0.3 or +0.3        
-        else:
-            z = 0
-            aligned = True
- 
-        # z = self.pidalignment.compute(targetorientation, currentorientation)
-
-        self.controller.setRightJoyX(z)
-        return aligned
-
     # Calculate the best direction in degrees
-    def navigate_from(self, current_position, current_alignment):
+    def navigate_from(self, current_position, current_angle):
 
         current_x_float, current_y_float = current_position
 
         # Adjusting for the zero based table and rounding to an integer
-        currentx = round(current_x_float)
-        currenty = round(current_y_float)        
+        currentx = round(current_x_float,1)
+        currenty = round(current_y_float,1)
+        currentz = round(current_angle,1)
 
-        aligned = self.aligned_to_target(current_alignment)
-        ontarget = (currentx == self.targetx and currenty == self.targety)
         
         # Use resulting angle to calculate controller values between -1 and 1
-        forward = (self.targetx - currentx)/5
-        strafe = (self.targety - currenty)/5
-
-        forward = round(forward * 100)/100
-        strafe = round(strafe * 100)/100
+        forward = self.pidforward.compute(self.targetx, current_x_float)
+        strafe = self.pidstrafe.compute(self.targety, current_y_float)
+        rotate = self.pidalignment.compute(self.targetz, current_angle)
+        
+        aligned = (currentz == self.targetz)
+        ontarget = (currentx == self.targetx and currenty == self.targety)
 
         # Set controller values
         # If you're on target, stop
-        if ontarget and aligned:
+        if ontarget:
             self.controller.stop()
         elif ontarget:
             self.controller.setLeftJoyY(0)
@@ -65,6 +47,11 @@ class DirectNavigator:
         else:
             self.controller.setLeftJoyY(forward)
             self.controller.setLeftJoyX(strafe)
+        
+        if aligned:
+            self.controller.setRightJoyX(0)
+        else:
+            self.controller.setRightJoyX(rotate)
             
 
         return (ontarget and aligned)

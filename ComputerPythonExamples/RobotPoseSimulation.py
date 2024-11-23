@@ -13,7 +13,7 @@ def initialize_networktables(server_ip='wpilibpi.local'):
 def control_robot_with_pi(network_controller, pose, game_manager):
 
     step = 0.5  # Step size for position change
-    rotation_step = 1  # Step size for orientation change
+    rotation_step = 15  # Step size for orientation change
 
     leftJoyX = network_controller.getNumber("leftJoyX", 0.0)
     leftJoyY = network_controller.getNumber("leftJoyY", 0.0)
@@ -57,10 +57,11 @@ def main():
                 print("Connection lost. Reconnecting.")
                 time.sleep(3)
                 networkcontroller, pose, gamemanager = initialize_networktables()
+                continue
     
         control_robot_with_pi(networkcontroller, pose, gamemanager)
         
-        time.sleep(0.1)  # Update every 100ms
+        time.sleep(0.5)  # Update every 100ms
     
 if __name__ == "__main__":
     main()
