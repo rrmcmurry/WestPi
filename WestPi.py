@@ -23,22 +23,20 @@ gameobjectives = [
     {"action": "align", "tag_id": 1}
 ]
     
-  
         
 # Main Loop
 def main():
 
+    # Initialize class instances
     ntinst = ntcore.NetworkTableInstance.getDefault()    
     if networktablesserver:
         ntinst.startServer()
     else:
         ntinst.startClient4("10.96.68.2")
-    ntinst.setServerTeam(9668) 
-
-    # Initialize class instances
+    ntinst.setServerTeam(9668)     
     game_manager = GameManager(gameobjectives)  
     camera = CameraManager()      
-    odometry_manager = OdometryManager.get_instance()
+    odometry = OdometryManager.get_instance()
     navigator = DirectNavigator()
     april_tag_aligner = AprilTagAligner()  
     controller = NetworkController()
@@ -48,16 +46,13 @@ def main():
     # Enter main loop to run game logic
     while True:
 
-        # Call periodic functions for things that need to update every time
+        # Call periodic functions 
         camera.periodic()
         controller.periodic()        
-        odometry_manager.periodic()
+        odometry.periodic()
         
         # Get our current objective from the game manager
         objective = game_manager.get_current_objective()
-        if not objective:
-            print("Game complete!")
-            game_manager.restart()
         newobjective = game_manager.objectivechanged()
 
         # If navigating
@@ -66,8 +61,8 @@ def main():
             if newobjective:
                 navigator.navigate_to(objective["target"], objective["orientation"])
                 
-            # Navigate to target and align to target alignment
-            ontarget = navigator.navigate_from(odometry_manager.get_position(), odometry_manager.get_orientation())            
+            # Navigate from current position until on target 
+            ontarget = navigator.navigate_from(odometry.get_position(), odometry.get_orientation())            
             if ontarget:                 
                 game_manager.advance_stage()
 
@@ -79,13 +74,9 @@ def main():
 
         # If waiting
         elif objective["action"] == "wait":            
-            if newobjective:
-                game_manager.wait_start_time = time.time()
-                controller.reset   
-                waittime = objective["duration"]
-                print(f"Waiting { waittime } seconds...")
-            elapsed_time = time.time() - game_manager.wait_start_time
-            
+            if newobjective:                
+                controller.reset                   
+            elapsed_time = time.time() - game_manager.stage_start_time            
             if elapsed_time >= objective["duration"]:            
                 game_manager.advance_stage()
         
