@@ -18,37 +18,24 @@ class DirectNavigator:
         self.targetx, self.targety = targetposition
         self.targetz = targetalignment
 
-    # Calculate the best direction in degrees
-    def navigate_from(self, current_position, current_angle):
-
-        current_x_float, current_y_float = current_position
-
-        # Adjusting for the zero based table and rounding to an integer
-        currentx = round(current_x_float,1)
-        currenty = round(current_y_float,1)
-        currentz = round(current_angle)
-
+    def navigate_from(self, position, currentz, margin = 0.5, anglemargin = 5):
+        currentx, currenty = position
         
-        # Use resulting angle to calculate controller values between -1 and 1
-        forward = self.pidforward.compute(self.targetx, current_x_float)
-        strafe = self.pidstrafe.compute(self.targety, current_y_float)
-        rotate = self.pidalignment.compute(self.targetz, current_angle)
+        # Compute controller values 
+        forward = self.pidforward.compute(self.targetx, currentx)
+        strafe = self.pidstrafe.compute(self.targety, currenty)
+        rotate = self.pidalignment.compute(self.targetz, currentz)
         
-        aligned = (currentz == self.targetz)
-        ontarget = (currentx == self.targetx and currenty == self.targety)
-
         # Set controller values
-        if ontarget:
-            self.controller.stop()
-        else:
-            self.controller.setLeftJoyY(forward)
-            self.controller.setLeftJoyX(strafe)
-        
-        if aligned:
-            self.controller.setRightJoyX(0)
-        else:
-            self.controller.setRightJoyX(rotate)
-            
+        self.controller.setLeftJoyY(forward)
+        self.controller.setLeftJoyX(strafe)
+        self.controller.setRightJoyX(rotate)
+                
+        # Are we within margins to be on target?
+        withinxmargin = abs(self.targetx - currentx) <= margin     
+        withinymargin = abs(self.targety - currenty) <= margin     
+        withinzmargin = abs(self.targetz - currentz) <= anglemargin
+        ontarget = withinxmargin and withinymargin and withinzmargin
 
-        return (ontarget and aligned)
+        return (ontarget)
 
