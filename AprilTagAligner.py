@@ -6,55 +6,37 @@ import math
 from cscore import CameraServer
 from NetworkController import NetworkController
 from OdometryManager import OdometryManager
+from PIDController import PIDController
+from PIDController import AnglePIDController
+from CameraManager import CameraManager
 
 # A class for aligning to AprilTags
 class AprilTagAligner:
-    def __init__(self):
-        print("Initializing Camera")
+    def __init__(self):        
         # Initialize the camera
         self.camera_width = 960
         self.camera_height = 640
-        CameraServer.enableLogging()
-        camera = CameraServer.startAutomaticCapture()
-        camera.setResolution(self.camera_width, self.camera_height)
-        self.cvSink = CameraServer.getVideo()
-        self.output = CameraServer.putVideo("Camera", self.camera_width, self.camera_height)
-        self.frame = numpy.zeros(shape=(self.camera_height, self.camera_width, 3), dtype=numpy.uint8)
         
+        # Initialize Odometry, controller, and PID
+        self.camera = CameraManager.get_instance()
         self.OdometryMannager = OdometryManager.get_instance()
         self.controller = NetworkController()
-
-        print("Initializing AprilTag detector")
-        # Initialize AprilTag Detector
-        self.detector = robotpy_apriltag.AprilTagDetector()
-        self.detector.addFamily("tag36h11")
-        pass
+        self.pidalignment = AnglePIDController(0.015,0,0)
+        self.pidforward = PIDController(0.2,0,0.6)
+        self.pidstrafe = PIDController(0.2,0,0.6)
         
-    # Function that runs on every loop no matter what.
-    def periodic(self):
-        # Grab video frame 
-        t, self.frame = self.cvSink.grabFrame(self.frame)
-        # Detect all AprilTags
-        self.tags = self.detect_april_tags(self.frame, self.detector)
-        # Draw any tags found on frame
-        results = self.draw_tags_on_frame(self.frame, self.tags)
-        # Push the results out to the CameraServer
-        self.output.putFrame(results) 
-        return
-        
-    # Function to detect AprilTags in a frame
-    def detect_april_tags(self, frame, detector):
-        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        self.tags = detector.detect(gray)         
-        return self.tags
+    
         
     def align_to_tag(self, tag_id):
-        # Logic to align to the specified AprilTag
+        # Logic to align to the specified AprilTag 
         aligned = False
+        # If we can see the tag, align to it
         if self.target_located(tag_id):
             aligned = self.orient_to_target(self.get_targettag(tag_id))
+        # Otherwise spin in a circle to the right
         else:
-            print(f"Error: Cannot find tag {tag_id}")
+            self.controller.stop()
+            self.controller.setRightJoyX(-0.3)
 
         return aligned
         
@@ -62,6 +44,8 @@ class AprilTagAligner:
     # Boolean function returns whether target was located
     def target_located(self, targettagid):
         targetlocated = False
+       
+        self.tags = self.camera.detect_april_tags()
         for tag in self.tags:
             tag_id = tag.getId()
             if tag_id == targettagid:
@@ -76,26 +60,8 @@ class AprilTagAligner:
             if tag_id == targettagid:
                 targettag = tag
         return targettag
+        
     
-    # Function to draw detected apriltags on a video frame
-    def draw_tags_on_frame(self, frame, tags):
-        for tag in tags:
-            # For each detected tag, get the tag ID
-            tag_id = tag.getId()
-            
-            # If the tag ID is greater than 16, its a false detection
-            if tag_id > 16:  
-                continue
-                
-            # Draw a green polyline around the AprilTag
-            points = []
-            for i in range(4):
-                corner = (int(tag.getCorner(i).x),int(tag.getCorner(i).y))
-                points.append(corner)
-            points = numpy.array(points, dtype=numpy.int32).reshape((-1,1,2))
-            cv2.polylines(frame, [points], True, (0, 255, 0), 5)
-
-        return frame
     
     # Function to orient to target 
     def orient_to_target(self, tag):

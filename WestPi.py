@@ -9,6 +9,7 @@ from FlowFieldNavigator import FlowFieldNavigator
 from DirectNavigator import DirectNavigator
 from AprilTagAligner import AprilTagAligner
 from GameManager import GameManager
+from CameraManager import CameraManager
 
 # Constants
 networktablesserver = True
@@ -19,7 +20,8 @@ gameobjectives = [
     {"action": "navigate", "target": (8, 5), "orientation": 90},
     {"action": "wait", "duration": 3},     
     {"action": "navigate", "target": (0, 5), "orientation": 0}, 
-    {"action": "wait", "duration": 3}
+    {"action": "wait", "duration": 3},
+    {"action": "align", "tag_id": 1}
 ]
     
   
@@ -35,19 +37,21 @@ def main():
     ntinst.setServerTeam(9668) 
 
     # Initialize class instances
+    camera = CameraManager()
     game_manager = GameManager(gameobjectives)    
     odometry_manager = OdometryManager.get_instance()
     navigator = FlowFieldNavigator()
     directnavigator = DirectNavigator()
     april_tag_aligner = AprilTagAligner()  
     controller = NetworkController()
+    
 
     print("Entering game logic")
     # Enter main loop to run game logic
     while True:
 
         # Call periodic functions for things that need to update every time
-        april_tag_aligner.periodic()
+        camera.periodic()
         controller.periodic()        
         odometry_manager.periodic()
         
