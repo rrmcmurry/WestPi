@@ -37,5 +37,5 @@ class DirectNavigator:
         withinzmargin = abs(self.targetz - currentz) <= anglemargin
         ontarget = withinxmargin and withinymargin and withinzmargin
 
-        return (ontarget)
+        return ontarget
 

@@ -1,8 +1,6 @@
 
 import ntcore
 import time
-
-
 from NetworkController import NetworkController
 from OdometryManager import OdometryManager
 from FlowFieldNavigator import FlowFieldNavigator
@@ -11,9 +9,10 @@ from AprilTagAligner import AprilTagAligner
 from GameManager import GameManager
 from CameraManager import CameraManager
 
-# Constants
-networktablesserver = True
+# This should be False unless bench testing the raspberry pi.
+networktablesserver = True   
 
+# Set game objectives here.
 gameobjectives = [
     {"action": "navigate", "target": (11, 7), "orientation": 270}, 
     {"action": "wait", "duration": 3},     
@@ -37,11 +36,10 @@ def main():
     ntinst.setServerTeam(9668) 
 
     # Initialize class instances
-    camera = CameraManager()
-    game_manager = GameManager(gameobjectives)    
+    game_manager = GameManager(gameobjectives)  
+    camera = CameraManager()      
     odometry_manager = OdometryManager.get_instance()
-    navigator = FlowFieldNavigator()
-    directnavigator = DirectNavigator()
+    navigator = DirectNavigator()
     april_tag_aligner = AprilTagAligner()  
     controller = NetworkController()
     
@@ -60,23 +58,20 @@ def main():
         if not objective:
             print("Game complete!")
             game_manager.restart()
-
-
+        newobjective = game_manager.objectivechanged()
 
         # If navigating
         if objective["action"] == "navigate":
-            # On first round, set up navigator
-            if game_manager.objective_has_changed():
-                directnavigator.navigate_to(objective["target"], objective["orientation"])
-                # navigator.generate_flowfield(objective["target"], objective["orientation"])
+            # On first round, set targets
+            if newobjective:
+                navigator.navigate_to(objective["target"], objective["orientation"])
                 
             # Navigate to target and align to target alignment
-            ontarget = directnavigator.navigate_from(odometry_manager.get_position(), odometry_manager.get_orientation())
-            # ontarget = navigator.get_directions(odometry_manager.get_position(), odometry_manager.get_orientation())
+            ontarget = navigator.navigate_from(odometry_manager.get_position(), odometry_manager.get_orientation())            
             if ontarget:                 
                 game_manager.advance_stage()
 
-        # If aligning to an April Tag
+        # If aligning 
         elif objective["action"] == "align":
             aligned = april_tag_aligner.align_to_tag(objective["tag_id"])                 
             if aligned:
@@ -84,7 +79,7 @@ def main():
 
         # If waiting
         elif objective["action"] == "wait":            
-            if game_manager.objective_has_changed():
+            if newobjective:
                 game_manager.wait_start_time = time.time()
                 controller.reset   
                 waittime = objective["duration"]
