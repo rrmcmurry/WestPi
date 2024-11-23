@@ -7,9 +7,9 @@ from PIDController import AnglePIDController
 class DirectNavigator:
     def __init__(self):
         self.controller = NetworkController()
-        self.pidalignment = AnglePIDController(0.1,0,0)
-        self.pidforward = PIDController(0.3,0.01,0.6)
-        self.pidstrafe = PIDController(0.3,0.01,0.6)
+        self.pidalignment = AnglePIDController(0.015,0,0)
+        self.pidforward = PIDController(0.2,0,0.6)
+        self.pidstrafe = PIDController(0.2,0,0.6)
         self.targetx = 0
         self.targety = 0
         self.targetz = 0
@@ -26,7 +26,7 @@ class DirectNavigator:
         # Adjusting for the zero based table and rounding to an integer
         currentx = round(current_x_float,1)
         currenty = round(current_y_float,1)
-        currentz = round(current_angle,1)
+        currentz = round(current_angle)
 
         
         # Use resulting angle to calculate controller values between -1 and 1
@@ -38,12 +38,8 @@ class DirectNavigator:
         ontarget = (currentx == self.targetx and currenty == self.targety)
 
         # Set controller values
-        # If you're on target, stop
         if ontarget:
             self.controller.stop()
-        elif ontarget:
-            self.controller.setLeftJoyY(0)
-            self.controller.setLeftJoyX(0)
         else:
             self.controller.setLeftJoyY(forward)
             self.controller.setLeftJoyX(strafe)

@@ -13,7 +13,7 @@ def initialize_networktables(server_ip='wpilibpi.local'):
 def control_robot_with_pi(network_controller, pose, game_manager):
 
     step = 0.5  # Step size for position change
-    rotation_step = 15  # Step size for orientation change
+    rotation_step = 5  # Step size for orientation change
 
     leftJoyX = network_controller.getNumber("leftJoyX", 0.0)
     leftJoyY = network_controller.getNumber("leftJoyY", 0.0)

@@ -57,7 +57,7 @@ def main():
             print("Game complete!")
             game_manager.restart()
 
-        
+
 
         # If navigating
         if objective["action"] == "navigate":
