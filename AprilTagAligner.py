@@ -5,7 +5,6 @@ import numpy
 import math
 from cscore import CameraServer
 from NetworkController import NetworkController
-from OdometryManager import OdometryManager
 from PIDController import PIDController
 from PIDController import AnglePIDController
 from CameraManager import CameraManager
@@ -16,8 +15,7 @@ class AprilTagAligner:
         # Initialize 
         self.camera = CameraManager.get_instance()
         self.camera_width = self.camera.camera_width
-        self.camera_height = self.camera.camera_height
-        self.OdometryMannager = OdometryManager.get_instance()
+        self.camera_height = self.camera.camera_height        
         self.controller = NetworkController()
         self.pidalignment = AnglePIDController(0.015,0,0)
         self.pidforward = PIDController(0.2,0,0.6)
@@ -25,8 +23,9 @@ class AprilTagAligner:
         
     
     # Align to a specified AprilTag        
-    def align_to_tag(self, tag_id):
+    def align_to_tag(self, tag_id, currentorientation):
         # Logic to align to the specified AprilTag 
+        self.currentorientation = currentorientation
         aligned = False
         # If we can see the tag, align to it
         if self.target_located(tag_id):
@@ -65,11 +64,15 @@ class AprilTagAligner:
         # target is not locked by default
         targetlocked = False
         
-        # Grab points from the tag
-        UpperLeftPoint = tag.getCorner(0)
-        UpperRightPoint = tag.getCorner(1)
-        LowerRightPoint = tag.getCorner(2)
-        LowerLeftPoint = tag.getCorner(3)
+        # Full tag definition here for reference:
+        # robotpy_apriltag.AprilTagDetector().detect(cv2.cvtColor(self.frame, cv2.COLOR_BGR2GRAY))[0]
+
+        # Grab points from the tag - These wrap counter-clockwise around the tag. Index 0 is bottom left corner.
+        
+        UpperLeftPoint = tag.getCorner(3) 
+        UpperRightPoint = tag.getCorner(2) 
+        LowerRightPoint = tag.getCorner(1)
+        LowerLeftPoint = tag.getCorner(0) 
         centerPoint = tag.getCenter()
         
         # Calculate pixel height of each side of the tag
@@ -108,9 +111,9 @@ class AprilTagAligner:
 
 
         # At this point forward and strafe are robot oriented. Translating to field oriented.
-        currentorientation = math.radians(self.OdometryMannager.get_orientation())
-        fieldforward = forward * math.cos(currentorientation) - strafe * math.sin(currentorientation)
-        fieldstrafe = forward * math.sin(currentorientation) + strafe * math.cos(currentorientation)
+        currentorientationinradians = math.radians(self.currentorientation)
+        fieldforward = forward * math.cos(currentorientationinradians) - strafe * math.sin(currentorientationinradians)
+        fieldstrafe = forward * math.sin(currentorientationinradians) + strafe * math.cos(currentorientationinradians)
 
         # Rounding everything to 2 decimals
         fieldforward = round(fieldforward * 0.5, 2)

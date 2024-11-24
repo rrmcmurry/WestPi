@@ -68,7 +68,7 @@ def main():
 
         # If aligning 
         elif objective["action"] == "align":
-            aligned = april_tag_aligner.align_to_tag(objective["tag_id"])                 
+            aligned = april_tag_aligner.align_to_tag(objective["tag_id"], odometry.get_orientation())                 
             if aligned:
                 game_manager.advance_stage()
 
