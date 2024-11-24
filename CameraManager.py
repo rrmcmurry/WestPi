@@ -29,6 +29,7 @@ class CameraManager:
         self.cvSink = CameraServer.getVideo()
         self.output = CameraServer.putVideo("Camera", self.camera_width, self.camera_height)
         self.frame = numpy.zeros(shape=(self.camera_height, self.camera_width, 3), dtype=numpy.uint8)
+        self.tags = []
      
         print("Initializing AprilTag Detector")
         # Initialize AprilTag Detector
