@@ -1,5 +1,5 @@
 
-import ntcore
+import ntcore # type: ignore
 import time
 from NetworkController import NetworkController
 from OdometryManager import OdometryManager
