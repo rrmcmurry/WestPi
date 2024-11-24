@@ -1,12 +1,7 @@
-
-import cv2
-import robotpy_apriltag
-import numpy 
 import math
 from cscore import CameraServer
 from NetworkController import NetworkController
 from PIDController import PIDController
-from PIDController import AnglePIDController
 from CameraManager import CameraManager
 
 # A class for aligning to AprilTags
@@ -51,36 +46,45 @@ class AprilTagAligner:
         if self.target_located(tag_id):
             targettag = self.get_targettag(tag_id)
 
-            UpperLeftPoint = targettag.getCorner(3) 
-            UpperRightPoint = targettag.getCorner(2) 
-            LowerRightPoint = targettag.getCorner(1)
             LowerLeftPoint = targettag.getCorner(0) 
+            LowerRightPoint = targettag.getCorner(1)
+            UpperRightPoint = targettag.getCorner(2) 
+            UpperLeftPoint = targettag.getCorner(3)             
             centerPoint = targettag.getCenter()
 
             # Calculate pixel height of each side of the tag
             LeftSideLength = abs(UpperLeftPoint.y - LowerLeftPoint.y)
             RightSideLength = abs(UpperRightPoint.y - LowerRightPoint.y)
+
+            # Find the closer side's Length
             CloserSideLength = max(LeftSideLength, RightSideLength)
 
+            # FORWARD
             # This ratio represents our distance from the AprilTag
             RatioOfAprilTagToCameraHeight = CloserSideLength / self.camera_height 
+            TargetHeightRatio = 0.8
             
-            # This ratio represents how far we are from being squarely in front of the AprilTag smaller values means closer to square.
+            # STRAFE
+            # This ratio represents how far we are from being squarely in front of the AprilTag... smaller values means closer to square.
+            # If Left Side is longer than right side, value is positve, otherwise negative
             RatioOfSideLengthDifferencesToCloserSide = (LeftSideLength - RightSideLength) / CloserSideLength 
+            TargetSideToCloserSideRatio = 0
 
+            # ROTATE
             # Distance from the center of the AprilTag to the Center of the Image as a ratio.. so values between -1 and 1
             CenterOfImage = self.camera_width / 2
             DistanceFromCenter = (centerPoint.x - CenterOfImage) / CenterOfImage 
+            TargetDistanceFromCenter = 0
 
             # Use PID to compute values
-            forward = self.pidforward.compute(0.8,RatioOfAprilTagToCameraHeight)
-            strafe = self.pidstrafe.compute(0,RatioOfSideLengthDifferencesToCloserSide) 
-            rotate = self.pidrotate.compute(0,DistanceFromCenter)
+            forward = self.pidforward.compute(TargetHeightRatio, RatioOfAprilTagToCameraHeight)
+            strafe = self.pidstrafe.compute(TargetSideToCloserSideRatio, RatioOfSideLengthDifferencesToCloserSide) 
+            rotate = self.pidrotate.compute(TargetDistanceFromCenter, DistanceFromCenter)
 
-            # At this point forward and strafe are robot oriented. Translating to field oriented.
+            # At this point forward and strafe are robot oriented. Calculating field oriented values based on orientation 
             currentorientationinradians = math.radians(self.currentorientation)
-            fieldforward = forward * math.cos(currentorientationinradians) - strafe * math.sin(currentorientationinradians)
-            fieldstrafe = forward * math.sin(currentorientationinradians) + strafe * math.cos(currentorientationinradians)
+            fieldforward = forward * math.cos(currentorientationinradians) + strafe * math.sin(currentorientationinradians)
+            fieldstrafe = strafe * math.cos(currentorientationinradians) - forward * math.sin(currentorientationinradians) 
 
             targetlocked = RatioOfAprilTagToCameraHeight == 0.8 and RatioOfSideLengthDifferencesToCloserSide == 0 and DistanceFromCenter == 0
 
