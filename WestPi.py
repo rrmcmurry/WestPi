@@ -3,7 +3,6 @@ import ntcore
 import time
 from NetworkController import NetworkController
 from OdometryManager import OdometryManager
-from FlowFieldNavigator import FlowFieldNavigator
 from DirectNavigator import DirectNavigator
 from AprilTagAligner import AprilTagAligner
 from GameManager import GameManager
