@@ -40,8 +40,11 @@ class GameManager:
 
     def advance_stage(self):        
         self.stage += 1
+        if len(self.objectives) == 1 and self.stage == 1:
+            self.objectives = [{"action": "wait", "duration": 3}]
         if self.stage >= len(self.objectives):
-            self.stage = 0
+            self.stage = 0   
+
         self.objectivechanged = True
         self.stage_start_time = time.time()
         print(f"Advancing to stage {self.stage}")
@@ -53,7 +56,8 @@ class GameManager:
         return changed
 
     def periodic(self):        
-        # Check if a new set of objectives has been provided 
+        # Check if a new set of objectives has been provided by FieldCommander
+        self.humandriver = self.GameTable.getBoolean("HumanDriver", False)
         objectives_json = self.ObjectiveTable.getString("NewObjectives", "")
         if objectives_json:
             try:
@@ -63,8 +67,11 @@ class GameManager:
                 overwrite = self.ObjectiveTable.getBoolean("Overwrite", False)
                 if overwrite:
                     # Overwrite objectives and reset to the first stage
+                    print(f"Current Objectives: {self.objectives}")
+                    print(f"New Objectives: {new_objectives}")
                     self.objectives = new_objectives
                     self.stage = 0  
+                    self.stage_start_time = time.time()
                 else:
                     self.objectives.extend(new_objectives)
                 

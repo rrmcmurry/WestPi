@@ -24,26 +24,31 @@ def simulate_robot(network_controller, pose, gamemanager, xbox_controller=None):
     step = 0.5  # Step size for position change
     rotation_step = 5  # Step size for orientation change
 
-    action = gamemanager.getString("Action", "none")
+    HumanDriver = False
 
-    if action == "navigate":
-        # Default to NetworkController inputs
-        leftJoyX = network_controller.getNumber("leftJoyX", 0.0)
-        leftJoyY = network_controller.getNumber("leftJoyY", 0.0)
-        rightJoyX = network_controller.getNumber("rightJoyX", 0.0)
-    else:
-        leftJoyX = 0
-        leftJoyY = 0
-        rightJoyX = 0
+    # Default to NetworkController inputs
+    leftJoyX = network_controller.getNumber("leftJoyX", 0.0)
+    leftJoyY = network_controller.getNumber("leftJoyY", 0.0)
+    rightJoyX = network_controller.getNumber("rightJoyX", 0.0)
+
 
     
 
     # Override with XboxController inputs if available
     if xbox_controller:
         pygame.event.pump()  # Process events
-        leftJoyX = deadband(xbox_controller.get_axis(0), 0.05) or leftJoyX
-        leftJoyY = deadband(-xbox_controller.get_axis(1), 0.05) or leftJoyY
-        rightJoyX = deadband(-xbox_controller.get_axis(2), 0.05) or rightJoyX
+        XBoxleftJoyX = deadband(xbox_controller.get_axis(0), 0.05) 
+        XBoxleftJoyY = deadband(-xbox_controller.get_axis(1), 0.05) 
+        XBoxrightJoyX = deadband(xbox_controller.get_axis(2), 0.05)
+
+        if XBoxleftJoyX or XBoxleftJoyY or XBoxrightJoyX:
+            HumanDriver = True
+            leftJoyX = XBoxleftJoyX
+            leftJoyY = XBoxleftJoyY
+            rightJoyX = XBoxrightJoyX
+
+    gamemanager.putBoolean("HumanDriver", HumanDriver)
+    
 
     # Update position based on inputs
     x = pose.getNumber("X", 0)

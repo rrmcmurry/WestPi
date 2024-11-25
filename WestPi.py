@@ -9,7 +9,9 @@ from GameManager import GameManager
 from CameraManager import CameraManager
 
 # This should be False unless bench testing the raspberry pi.
-networktablesserver = True   
+networktablesserver = False   
+serverlocation = '10.96.68.2'
+serverlocation = '192.168.16.126'
 
 # Set game objectives here.
 gameobjectives = [
@@ -18,8 +20,7 @@ gameobjectives = [
     {"action": "navigate", "target": (8, 5), "orientation": 90},
     {"action": "wait", "duration": 3},     
     {"action": "navigate", "target": (0, 5), "orientation": 0}, 
-    {"action": "wait", "duration": 3},
-    {"action": "align", "tag_id": 1}
+    {"action": "wait", "duration": 3}    
 ]
     
         
@@ -31,8 +32,9 @@ def main():
     if networktablesserver:
         ntinst.startServer()
     else:
-        ntinst.startClient4("10.96.68.2")
-    ntinst.setServerTeam(9668)     
+        ntinst.startClient4("WestPi")
+        ntinst.setServer(serverlocation)
+    # ntinst.setServerTeam(9668)     
     game_manager = GameManager(gameobjectives)  
     camera = CameraManager()      
     odometry = OdometryManager.get_instance()
@@ -52,10 +54,15 @@ def main():
         
         # Get our current objective from the game manager
         objective = game_manager.get_current_objective()
-        newobjective = game_manager.objectivechanged()
+        newobjective = game_manager.objectivechanged
+        
+        
 
         # If navigating
-        if objective["action"] == "navigate":
+        if game_manager.humandriver:
+            continue
+
+        elif objective["action"] == "navigate":
             # On first round, set targets
             if newobjective:
                 navigator.navigate_to(objective["target"], objective["orientation"])
@@ -74,7 +81,7 @@ def main():
         # If waiting
         elif objective["action"] == "wait":            
             if newobjective:                
-                controller.reset                   
+                controller.reset()  
             elapsed_time = time.time() - game_manager.stage_start_time            
             if elapsed_time >= objective["duration"]:            
                 game_manager.advance_stage()
