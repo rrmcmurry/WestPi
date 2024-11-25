@@ -1,11 +1,13 @@
 import ntcore
 import time
+import json
 
 # A class for defining the stages of the game and the objectives in that stage
 class GameManager:
     def __init__(self, gameobjectives):
         self.ntinst = ntcore.NetworkTableInstance.getDefault()            
         self.GameTable = self.ntinst.getTable('GameManager') 
+        self.ObjectiveTable = self.ntinst.getTable('Objectives')
         self.objectivechanged = True
         self.stage = 0
         self.wait_start_time = None
@@ -13,7 +15,8 @@ class GameManager:
         self.print_current_objective()
         self.GameTable.putNumber('Stage', 0.0)
 
-    def get_current_objective(self):        
+    def get_current_objective(self): 
+        self.periodic()
         return self.objectives[self.stage]
     
     def print_current_objective(self):
@@ -44,8 +47,36 @@ class GameManager:
         print(f"Advancing to stage {self.stage}")
         self.print_current_objective()
         
-        
     def objective_has_changed(self):
         changed = self.objectivechanged
         self.objectivechanged = False
         return changed
+
+    def periodic(self):        
+        # Check if a new set of objectives has been provided 
+        objectives_json = self.ObjectiveTable.getString("NewObjectives", "")
+        if objectives_json:
+            try:
+                new_objectives = json.loads(objectives_json)
+                
+                # Overwrite or extend objectives
+                overwrite = self.ObjectiveTable.getBoolean("Overwrite", False)
+                if overwrite:
+                    # Overwrite objectives and reset to the first stage
+                    self.objectives = new_objectives
+                    self.stage = 0  
+                else:
+                    self.objectives.extend(new_objectives)
+                
+                # Fallback to wait if the objectives are empty
+                if not self.objectives:
+                    self.objectives = [{"action": "wait", "duration": 3}]
+                
+                # Reset action 
+                self.objectivechanged = True
+
+                # Clear the input
+                self.ObjectiveTable.putString("NewObjectives", "")  
+                print("Objectives updated from NetworkTables.")
+            except Exception as e:
+                print(f"Failed to parse objectives: {e}")
