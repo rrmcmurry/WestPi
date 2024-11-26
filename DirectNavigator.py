@@ -10,6 +10,8 @@ class DirectNavigator:
         self.pidalignment = AnglePIDController(0.015,0,0)
         self.pidforward = PIDController(0.1,0,0)
         self.pidstrafe = PIDController(0.1,0,0)
+        self.pidforwardpassthrough = PIDController(0.5,0,0.2)
+        self.pidstrafepassthrough = PIDController(0.5,0,0.2)
         self.pathindex = 0
         self.targetx = 0
         self.targety = 0
@@ -24,25 +26,13 @@ class DirectNavigator:
         if self.pathindex >= len(self.path):
             return True
         targetx, targety = self.path[self.pathindex]
-        next_index = min(self.pathindex + 1, len(self.path) - 1)
-        nextx, nexty = self.path[next_index]
-
-        forward = self.computepassthrough(targetx, nextx, currentx)
-        strafe = self.computepassthrough(targety, nexty, currenty)
+        forward = self.pidforwardpassthrough.compute(targetx, currentx)
+        strafe = self.pidstrafepassthrough.compute(targety, currenty)
         self.controller.setLeftJoyY(forward)
         self.controller.setLeftJoyX(strafe)
         if abs(targetx - currentx) <= margin and abs(targety - currenty) <= margin:            
             self.pathindex = self.pathindex + 1    
         return False
-
-    def computepassthrough(self, target, next, current):
-        # Need to use the next value to average out our output and prevent the zigzagging
-
-        if (target - current) == 0:
-            output = 0
-        else:
-            output = (target - current)/abs(target - current) * 0.6
-        return output
 
     def navigate_to(self, targetposition, targetalignment):
         self.targetx, self.targety = targetposition
