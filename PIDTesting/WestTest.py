@@ -29,7 +29,7 @@ def main():
         ntinst.startClient4("WestPi")
         ntinst.setServer(serverlocation)
     # ntinst.setServerTeam(9668)     
-    GameTable = self.ntinst.getTable('GameManager')  
+    GameTable = ntinst.getTable('GameManager')  
     camera = CameraManager()      
     odometry = OdometryManager.get_instance()
     navigator = DirectNavigator()
@@ -51,7 +51,7 @@ def main():
         humandriver = GameTable.getBoolean("HumanDriver", True)
         
         # Let the human drive
-        if game_manager.humandriver:
+        if humandriver:
             continue
 
         currentposition = odometry.get_position()
