@@ -14,13 +14,12 @@ serverlocation = '10.96.68.2'
 serverlocation = '192.168.16.126'
 
 # Set game objectives here.
-gameobjectives = [
+autonomousobjectives = [
     {"action": "navigate", "target": (11, 7), "orientation": 270}, 
-    {"action": "wait", "duration": 3},     
-    {"action": "navigate", "target": (8, 5), "orientation": 90},
-    {"action": "wait", "duration": 3},     
+    {"action": "passthrough", "path": [(5,4), (2,6)]},   
     {"action": "navigate", "target": (0, 5), "orientation": 0}, 
-    {"action": "wait", "duration": 3}    
+    {"action": "wait", "duration": 3},    
+    {"action": "passthrough", "path": [(2,6), (5,4)]}
 ]
     
         
@@ -35,7 +34,7 @@ def main():
         ntinst.startClient4("WestPi")
         ntinst.setServer(serverlocation)
     # ntinst.setServerTeam(9668)     
-    game_manager = GameManager(gameobjectives)  
+    game_manager = GameManager(autonomousobjectives)  
     camera = CameraManager()      
     odometry = OdometryManager.get_instance()
     navigator = DirectNavigator()
@@ -54,14 +53,13 @@ def main():
         
         # Get our current objective from the game manager
         objective = game_manager.get_current_objective()
-        newobjective = game_manager.objectivechanged
-        
-        
+        newobjective = game_manager.objective_has_changed()
 
-        # If navigating
+        # Let the human drive
         if game_manager.humandriver:
             continue
 
+        # If navigating
         elif objective["action"] == "navigate":
             # On first round, set targets
             if newobjective:
@@ -70,6 +68,14 @@ def main():
             # Navigate from current position until on target 
             ontarget = navigator.navigate_from(odometry.get_position(), odometry.get_orientation())            
             if ontarget:                 
+                game_manager.advance_stage()
+
+        # If passthrough
+        elif objective["action"] == "passthrough":
+            if newobjective:
+                navigator.set_passthrough(objective["path"])
+            passedthrough = navigator.passthrough(odometry.get_position())
+            if passedthrough:
                 game_manager.advance_stage()
 
         # If aligning 
@@ -86,7 +92,11 @@ def main():
             if elapsed_time >= objective["duration"]:            
                 game_manager.advance_stage()
         
-        
+         # If waiting
+        elif objective["action"] == "stop":            
+            controller.reset()  
+            game_manager.stop()
+
 
 
 

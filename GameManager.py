@@ -19,6 +19,8 @@ class GameManager:
         self.periodic()
         return self.objectives[self.stage]
     
+
+
     def print_current_objective(self):
         self.GameTable.putNumber('Stage', self.stage)
         objective = self.objectives[self.stage]
@@ -49,7 +51,11 @@ class GameManager:
         self.stage_start_time = time.time()
         print(f"Advancing to stage {self.stage}")
         self.print_current_objective()
-        
+
+    def stop(self):
+        self.objectives = [{"action": "wait", "duration": 3}]
+        self.stage = 0
+
     def objective_has_changed(self):
         changed = self.objectivechanged
         self.objectivechanged = False
@@ -64,7 +70,7 @@ class GameManager:
                 new_objectives = json.loads(objectives_json)
                 
                 # Overwrite or extend objectives
-                overwrite = self.ObjectiveTable.getBoolean("Overwrite", False)
+                overwrite = self.ObjectiveTable.getBoolean("Overwrite", True)
                 if overwrite:
                     # Overwrite objectives and reset to the first stage
                     print(f"Current Objectives: {self.objectives}")
