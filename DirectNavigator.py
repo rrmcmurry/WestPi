@@ -6,10 +6,13 @@ from PIDController import AnglePIDController
 # A class for defining a field with obstacles that can give directions
 class DirectNavigator:
     def __init__(self):
+        p=0.6
+        i=0
+        d=0
         self.controller = NetworkController()
         self.pidalignment = AnglePIDController(0.015,0,0)
-        self.pidforward = PIDController(0.1,0,0)
-        self.pidstrafe = PIDController(0.1,0,0)
+        self.pidforward = PIDController(p,i,d)
+        self.pidstrafe = PIDController(p,i,d)
         self.pidforwardpassthrough = PIDController(0.5,0,0.2)
         self.pidstrafepassthrough = PIDController(0.5,0,0.2)
         self.pathindex = 0
@@ -54,7 +57,7 @@ class DirectNavigator:
         # Are we within margins to be on target?
         withinxmargin = abs(self.targetx - currentx) <= margin     
         withinymargin = abs(self.targety - currenty) <= margin     
-        withinzmargin = abs(self.targetz - currentz + 180) % 360 - 180 <= anglemargin
+        withinzmargin = abs((self.targetz - currentz + 180) % 360 - 180) <= anglemargin
         ontarget = withinxmargin and withinymargin and withinzmargin
 
         return ontarget
