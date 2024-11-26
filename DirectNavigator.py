@@ -6,9 +6,9 @@ from PIDController import AnglePIDController
 # A class for defining a field with obstacles that can give directions
 class DirectNavigator:
     def __init__(self):
-        p=0.6
-        i=0
-        d=0
+        p=0.01
+        i=0.00
+        d=0.00
         self.controller = NetworkController()
         self.pidalignment = AnglePIDController(0.015,0,0)
         self.pidforward = PIDController(p,i,d)
