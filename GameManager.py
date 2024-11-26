@@ -10,7 +10,7 @@ class GameManager:
         self.ObjectiveTable = self.ntinst.getTable('Objectives')
         self.objectivechanged = True
         self.stage = 0
-        self.wait_start_time = None
+        self.stage_start_time = time.time()
         self.objectives = gameobjectives
         self.print_current_objective()
         self.GameTable.putNumber('Stage', 0.0)
