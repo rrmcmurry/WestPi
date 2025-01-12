@@ -7,10 +7,10 @@ Knoxville, TN
 
 ## Overview
 
-This repository contains the Raspberry Pi coprocessor code for our test robots. The RoboRIO code is maintained in a [separate repository](https://github.com/rrmcmurry/9668_Swerve/).
+This repository contains the Raspberry Pi coprocessor code for our test robots. The RoboRIO code is maintained in a [separate repository](https://github.com/rrmcmurry/9668_Reefscape/).
 
 So, the overall idea here is that the RoboRIO is essentially a remote control car with two drivers. There is the driver at the driver station... and there is the raspberry pi 4 running this application, 
-on [WPILibPi](https://github.com/wpilibsuite/WPILibPi/releases), acting like another driver. If you look in our robot code in the [separate repository](https://github.com/rrmcmurry/9668_Swerve/), 
+on [WPILibPi](https://github.com/wpilibsuite/WPILibPi/releases), acting like another driver. If you look in our robot code in the [separate repository](https://github.com/rrmcmurry/9668_Reefscape/), 
 you'll see that we have created a simulation of an XBox controller in NetworkTables and the robot just looks at the networkcontroller values and responds like it would if it received the same 
 values from the actual XBox controller and actual driver. 
 
