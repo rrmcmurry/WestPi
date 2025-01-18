@@ -16,7 +16,9 @@ serverlocation = '192.168.16.126'
 # Set game objectives here.
 autonomousobjectives = [
     {"action": "wait", "duration": 1}, 
-    {"action": "navigate", "target": (5, 5), "orientation": 0} 
+    {"action": "navigate", "target": (5, 5), "orientation": 0}, 
+    {"action": "wait", "duration": 1}, 
+    {"action": "align", "tag_id": 1} 
 ]
     
         
