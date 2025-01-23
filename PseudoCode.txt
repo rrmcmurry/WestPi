@@ -1,0 +1,57 @@
+
+Do these things over and over:
+
+Camera, take a picture
+
+Controller, update the controller values once ever 10ms
+
+Odometry, Get our current position
+
+Game Manager, what is our current objective?
+
+Game Manager: objective = [
+{"action":"wait","duration",1},
+{"action":"navigate","target": (5,5), "orientation":0},
+{"action":"align","tag_id": 7}
+]
+
+If there's a human driver, wait until the next round
+
+If our objective is to navigate
+
+	If this is a new objective 
+		Navigator, Here's the target
+	
+	Navigator, here's our current position, are we on target?
+
+	If ontarget,
+		Game Manager, advance to the next stage
+
+
+If our objective is to passthrough
+
+	If this is a new objective
+		Navigator, Here's a set of points to passthrough
+
+	Navigator, here's our current position, have we passed through the ponts?
+
+	If passthrough:
+		Game Manager, advance to the next stage
+
+
+If our objective is to align to an apriltag
+
+	AprilTagAligner, here's the tag we're looking for and our current orientation, are we aligned?
+
+	If we're aligned:
+		Game Manager, advance to the next stage
+
+If our objective is to wait
+
+	Controller, reset all your values back to zero
+	
+	The current time is __ and we started this stage at ___, has enough time passed?
+
+	If time has passed:
+		Game Manager, advance to the next stage
+
