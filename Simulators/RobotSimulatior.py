@@ -27,9 +27,9 @@ def simulate_robot(network_controller, pose, gamemanager, xbox_controller=None):
     HumanDriver = False
 
     # Default to NetworkController inputs
-    leftJoyX = network_controller.getNumber("leftJoyX", 0.0)
-    leftJoyY = network_controller.getNumber("leftJoyY", 0.0)
-    rightJoyX = network_controller.getNumber("rightJoyX", 0.0)
+    leftJoyX = network_controller.getNumber("leftJoyX", 0.0) * 10
+    leftJoyY = network_controller.getNumber("leftJoyY", 0.0) * 10
+    rightJoyX = network_controller.getNumber("rightJoyX", 0.0) 
 
 
     
@@ -37,9 +37,9 @@ def simulate_robot(network_controller, pose, gamemanager, xbox_controller=None):
     # Override with XboxController inputs if available
     if xbox_controller:
         pygame.event.pump()  # Process events
-        XBoxleftJoyX = deadband(xbox_controller.get_axis(0), 0.05) 
-        XBoxleftJoyY = deadband(-xbox_controller.get_axis(1), 0.05) 
-        XBoxrightJoyX = deadband(xbox_controller.get_axis(2), 0.05)
+        XBoxleftJoyX = deadband(xbox_controller.get_axis(0), 0.2) 
+        XBoxleftJoyY = deadband(-xbox_controller.get_axis(1), 0.2) 
+        XBoxrightJoyX = deadband(xbox_controller.get_axis(2), 0.2)
 
         if XBoxleftJoyX or XBoxleftJoyY or XBoxrightJoyX:
             HumanDriver = True

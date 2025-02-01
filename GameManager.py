@@ -43,9 +43,10 @@ class GameManager:
     def advance_stage(self):        
         self.stage += 1
         if len(self.objectives) == 1 and self.stage == 1:
-            self.objectives = [{"action": "wait", "duration": 3}]
+            self.objectives = [{"action": "wait"}]
         if self.stage >= len(self.objectives):
-            self.stage = 0   
+            self.objectives = [{"action": "wait"}]
+            self.stage = 0            
 
         self.objectivechanged = True
         self.stage_start_time = time.time()
@@ -53,7 +54,7 @@ class GameManager:
         self.print_current_objective()
 
     def stop(self):
-        self.objectives = [{"action": "wait", "duration": 3}]
+        self.objectives = [{"action": "wait"}]
         self.stage = 0
 
     def objective_has_changed(self):
@@ -78,18 +79,26 @@ class GameManager:
                     self.objectives = new_objectives
                     self.stage = 0  
                     self.stage_start_time = time.time()
+                elif self.objectives == [{"action": "wait"}]:
+                    # Overwrite objectives and reset to the first stage
+                    print(f"Current Objectives: {self.objectives}")
+                    print(f"New Objectives: {new_objectives}")
+                    self.objectives = new_objectives
+                    self.stage = 0  
+                    self.stage_start_time = time.time()
                 else:
                     self.objectives.extend(new_objectives)
                 
                 # Fallback to wait if the objectives are empty
                 if not self.objectives:
-                    self.objectives = [{"action": "wait", "duration": 3}]
+                    self.objectives = [{"action": "wait"}]
                 
                 # Reset action 
                 self.objectivechanged = True
 
                 # Clear the input
-                self.ObjectiveTable.putString("NewObjectives", "")  
+                self.ObjectiveTable.putString("NewObjectives", "")
+                self.ObjectiveTable.putString("CurrentObjectives", json.dumps(self.objectives))
                 print("Objectives updated from NetworkTables.")
             except Exception as e:
                 print(f"Failed to parse objectives: {e}")

@@ -3,13 +3,13 @@ Do these things over and over:
 
 Camera, take a picture
 
-Controller, update the controller values once ever 10ms
+Controller, push controller values once every 10ms
 
-Odometry, Get our current position
+Odometry, get our current position from the robot
 
 Game Manager, what is our current objective?
 
-Game Manager: objective = [
+Game Manager: your objectives are to = [
 {"action":"wait","duration",1},
 {"action":"navigate","target": (5,5), "orientation":0},
 {"action":"align","tag_id": 7}
@@ -45,6 +45,7 @@ If our objective is to align to an apriltag
 
 	If we're aligned:
 		Game Manager, advance to the next stage
+
 
 If our objective is to wait
 

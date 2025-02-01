@@ -182,3 +182,4 @@ ctre_sim/
 
 /Archive/OrangeNote
 /env
+*.pyc
