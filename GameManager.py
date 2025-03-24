@@ -63,42 +63,42 @@ class GameManager:
         return changed
 
     def periodic(self):        
-        # Check if a new set of objectives has been provided by FieldCommander
+        # Check if a new set of objectives has been provided 
         self.humandriver = self.GameTable.getBoolean("HumanDriver", False)
+
+        # Get "NewObjectives" from "Objectives" Table
         objectives_json = self.ObjectiveTable.getString("NewObjectives", "")
+        overwrite = self.ObjectiveTable.getBoolean("Overwrite", True)                
+
+        # If there are new objectives
         if objectives_json:
             try:
+                # Unpack them
                 new_objectives = json.loads(objectives_json)
                 
-                # Overwrite or extend objectives
-                overwrite = self.ObjectiveTable.getBoolean("Overwrite", True)
-                if overwrite:
-                    # Overwrite objectives and reset to the first stage
-                    print(f"Current Objectives: {self.objectives}")
-                    print(f"New Objectives: {new_objectives}")
-                    self.objectives = new_objectives
-                    self.stage = 0  
-                    self.stage_start_time = time.time()
-                elif self.objectives == [{"action": "wait"}]:
-                    # Overwrite objectives and reset to the first stage
-                    print(f"Current Objectives: {self.objectives}")
-                    print(f"New Objectives: {new_objectives}")
+                # Overwrite or extend existing objectives                
+                if overwrite or self.objectives == [{"action": "wait"}]:
+                    # Overwrite existing objectives and reset to the first stage    
                     self.objectives = new_objectives
                     self.stage = 0  
                     self.stage_start_time = time.time()
                 else:
+                    # Extend objectives
                     self.objectives.extend(new_objectives)
                 
-                # Fallback to wait if the objectives are empty
+                # Fallback to wait when objectives are empty
                 if not self.objectives:
                     self.objectives = [{"action": "wait"}]
                 
                 # Reset action 
                 self.objectivechanged = True
 
-                # Clear the input
+                # Clear the "NewObjectives" input value
                 self.ObjectiveTable.putString("NewObjectives", "")
+
+                # Update the "CurrentObjectives" output value 
                 self.ObjectiveTable.putString("CurrentObjectives", json.dumps(self.objectives))
+                
                 print("Objectives updated from NetworkTables.")
             except Exception as e:
                 print(f"Failed to parse objectives: {e}")
