@@ -20,10 +20,12 @@ class DirectNavigator:
         self.targety = 0
         self.targetz = 0
 
+    # Define a point to pass through
     def set_passthrough(self, path):
         self.path = path
         self.pathindex = 0
-        
+    
+    # Navigate to the passthrough point
     def passthrough(self, position, margin=1.5):
         currentx, currenty = position
         if self.pathindex >= len(self.path):
@@ -37,10 +39,12 @@ class DirectNavigator:
             self.pathindex = self.pathindex + 1    
         return False
 
+    # Define the target
     def navigate_to(self, targetposition, targetalignment):
         self.targetx, self.targety = targetposition
         self.targetz = targetalignment
 
+    # Navigate to the target from current location
     def navigate_from(self, position, currentz, margin=0.5, anglemargin=5, arc_speed=0.1):
         currentx, currenty = position
 
@@ -64,29 +68,3 @@ class DirectNavigator:
 
         return ontarget
 
-
-    def path_intersects_circle(self, start, end, circle_center, circle_radius):
-        # Check if the line segment intersects the circle
-        cx, cy = circle_center
-        x1, y1 = start
-        x2, y2 = end
-
-        # Line segment equation: (x, y) = start + t * (end - start), 0 <= t <= 1
-        dx, dy = x2 - x1, y2 - y1
-        fx, fy = x1 - cx, y1 - cy
-
-        # Quadratic formula: a*t^2 + b*t + c = 0
-        a = dx**2 + dy**2
-        b = 2 * (fx * dx + fy * dy)
-        c = fx**2 + fy**2 - circle_radius**2
-
-        # Discriminant
-        discriminant = b**2 - 4 * a * c
-        if discriminant < 0:
-            return False  # No intersection
-
-        # Check if the intersection points are within the line segment
-        discriminant = math.sqrt(discriminant)
-        t1 = (-b - discriminant) / (2 * a)
-        t2 = (-b + discriminant) / (2 * a)
-        return 0 <= t1 <= 1 or 0 <= t2 <= 1
