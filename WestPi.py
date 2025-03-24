@@ -26,7 +26,7 @@ def main():
     ntinst.setServer(serverlocation)
     ntinst.setServerTeam(9668)     
     game_manager = GameManager(autonomousobjectives)  
-    # camera = CameraManager()      
+    camera = CameraManager()      
     odometry = OdometryManager.get_instance()
     navigator = DirectNavigator()
     april_tag_aligner = AprilTagAligner()  
@@ -38,7 +38,7 @@ def main():
     while True:
 
         # Call periodic functions 
-        # camera.periodic()
+        camera.periodic()
         controller.periodic()        
         odometry.periodic()
         
@@ -46,7 +46,7 @@ def main():
         objective = game_manager.get_current_objective()
         newobjective = game_manager.objective_has_changed()
 
-        # Let the human drive
+        # If there is a human driving, let the human drive
         if game_manager.humandriver:
             continue
 
@@ -71,12 +71,12 @@ def main():
 
         # If aligning 
         elif objective["action"] == "align":
-            # aligned = april_tag_aligner.align_to_tag(objective["tag_id"], odometry.get_orientation())
+            aligned = april_tag_aligner.align_to_tag(objective["tag_id"], odometry.get_orientation())
             aligned = True
             if aligned:
                 game_manager.advance_stage()
 
-        # If waiting
+        # If waiting for a time
         elif objective["action"] == "waitfortime":            
             if newobjective:                
                 controller.reset()  
@@ -85,13 +85,13 @@ def main():
             if elapsed_time >= objective["duration"]:            
                 game_manager.advance_stage()
 
+        # If waiting
         elif objective["action"] == "wait":            
             if newobjective:                
                 controller.reset()  
             time.sleep(1)
             
-        
-         # If waiting
+        # If Stopping
         elif objective["action"] == "stop":            
             controller.reset()  
             game_manager.stop()
