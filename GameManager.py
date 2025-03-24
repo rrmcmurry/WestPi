@@ -18,7 +18,6 @@ class GameManager:
     def get_current_objective(self): 
         self.periodic()
         return self.objectives[self.stage]
-    
 
 
     def print_current_objective(self):

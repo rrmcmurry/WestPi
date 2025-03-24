@@ -9,7 +9,7 @@ from GameManager import GameManager
 from CameraManager import CameraManager
 
 serverlocation = '10.96.68.2'
-serverlocation = 'localhost'
+# serverlocation = 'localhost'
 
 # Default startup game objectives
 autonomousobjectives = [
@@ -42,7 +42,8 @@ def main():
         controller.periodic()        
         odometry.periodic()
         
-        # Get our current objective from the game manager
+        # Get our current objective from the game manager 
+        # and check to see if the objective has changed
         objective = game_manager.get_current_objective()
         newobjective = game_manager.objective_has_changed()
 
