@@ -24,53 +24,19 @@ class DirectNavigator:
         self.path = path
         self.pathindex = 0
         
-    def passthrough(self, position, margin=1.5, lookahead_distance=2.0):
+    def passthrough(self, position, margin=1.5):
         currentx, currenty = position
         if self.pathindex >= len(self.path):
             return True
-    
-        # Get the current target based on lookahead
-        lookahead_target = get_lookahead_target(self.path, position, lookahead_distance)
-        if not lookahead_target:
-            return True  # End of path
-    
-        targetx, targety = lookahead_target
+        targetx, targety = self.path[self.pathindex]
         forward = self.pidforwardpassthrough.compute(targetx, currentx)
         strafe = self.pidstrafepassthrough.compute(targety, currenty)
-    
         self.controller.setLeftJoyY(forward)
         self.controller.setLeftJoyX(strafe)
-    
-        # Check if within margin to the current waypoint
-        waypointx, waypointy = self.path[self.pathindex]
-        if abs(waypointx - currentx) <= margin and abs(waypointy - currenty) <= margin:
-            self.pathindex += 1
-    
+        if abs(targetx - currentx) <= margin and abs(targety - currenty) <= margin:            
+            self.pathindex = self.pathindex + 1    
         return False
 
-    def get_lookahead_target(path, current_position, lookahead_distance):
-        currentx, currenty = current_position
-        for i in range(len(path) - 1):
-            startx, starty = path[i]
-            endx, endy = path[i+1]
-            segment_length = distance((startx, starty), (endx, endy))
-            # Check if lookahead point is in this segment
-            if segment_length >= lookahead_distance:
-                ratio = lookahead_distance / segment_length
-                lookaheadx = startx + ratio * (endx - startx)
-                lookaheady = starty + ratio * (endy - starty)
-                return lookaheadx, lookaheady
-            else:
-                # Reduce lookahead distance by segmentlenth for next segment
-                lookahead_distance -= segment_length
-        return None
-        
-    
-    def distance(point1, point2):
-        x1, y1 = point1
-        x2, y2 = point2
-        return ((x2-x1) ** 2 + (y2-y1) ** 2) ** 0.5
-    
     def navigate_to(self, targetposition, targetalignment):
         self.targetx, self.targety = targetposition
         self.targetz = targetalignment
